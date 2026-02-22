@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { toast } from "sonner"
 import { Check, X, Loader2, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -71,20 +72,20 @@ export function AdminOrderItems({ items: initialItems }: { items: any[] }) {
                         <div
                             key={item.id}
                             className={`flex flex-col sm:flex-row items-start justify-between p-4 rounded-lg border transition-all ${item.return_status === 'requested'
-                                    ? 'bg-amber-500/5 border-amber-500/30'
-                                    : 'border-border'
+                                ? 'bg-amber-500/5 border-amber-500/30'
+                                : 'border-border'
                                 }`}
                         >
                             {/* Product Info */}
                             <div className="flex gap-4 mb-4 sm:mb-0">
                                 <div className="relative w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0 border">
-                                    {item.products?.images?.[0] && (
-                                        <img
-                                            src={item.products.images[0]}
-                                            alt={item.products.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    )}
+                                    <Image
+                                        src={item.products?.images?.[0] || '/placeholder.png'}
+                                        alt={item.products?.title || 'Product image'}
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        className="object-cover"
+                                    />
                                 </div>
                                 <div>
                                     <p className="font-semibold text-sm sm:text-base">{item.products.title}</p>

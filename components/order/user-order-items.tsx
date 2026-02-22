@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -60,14 +61,14 @@ function OrderItemRow({ item, orderStatus }: { item: any, orderStatus: string })
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 border-b last:border-0">
             {/* Product Info */}
             <div className="flex items-start gap-4">
-                <div className="w-16 h-16 bg-muted rounded-md overflow-hidden border flex-shrink-0">
-                    {item.products?.images?.[0] && (
-                        <img
-                            src={item.products.images[0]}
-                            alt={item.products.title}
-                            className="w-full h-full object-cover"
-                        />
-                    )}
+                <div className="w-16 h-16 bg-muted rounded-md overflow-hidden border flex-shrink-0 relative">
+                    <Image
+                        src={item.products?.images?.[0] || '/placeholder.png'}
+                        alt={item.products?.title || 'Product image'}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover"
+                    />
                 </div>
                 <div>
                     <h4 className="font-medium text-sm sm:text-base">{item.products.title}</h4>
