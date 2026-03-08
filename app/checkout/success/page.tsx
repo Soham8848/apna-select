@@ -1,9 +1,19 @@
+"use client"
+import { useEffect } from "react"
+import { useCart } from "@/store/use-cart"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { FadeIn } from "@/components/ui/FadeIn"
 
 export default function CheckoutSuccessPage() {
+    const cart = useCart()
+
+    useEffect(() => {
+        cart.clearCart()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
             <FadeIn>

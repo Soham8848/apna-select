@@ -6,9 +6,9 @@ const MARQUEE_CONTENT = "⚡ WORLD'S BEST PRODUCTS • 🚀 FASTEST SHIPPING •
 
 export function MarqueeBar() {
     return (
-        <div className="w-full bg-amber-500 text-black py-3 overflow-hidden flex whitespace-nowrap z-20 relative">
+        <div className="w-full bg-amber-500 text-black py-1.5 overflow-hidden flex whitespace-nowrap z-20 relative">
             <motion.div
-                className="flex items-center font-bold font-mono text-base tracking-wider uppercase"
+                className="flex items-center font-bold font-mono text-xs tracking-wider uppercase"
                 animate={{ x: [0, -1000] }}
                 transition={{
                     repeat: Infinity,

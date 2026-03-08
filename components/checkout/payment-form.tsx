@@ -8,22 +8,17 @@ import Script from "next/script"
 import { useRouter } from "next/navigation"
 import { CreditCard, Banknote } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { load } from "@cashfreepayments/cashfree-js"
 
 interface PaymentFormProps {
     addressId: string | null
-}
-
-declare global {
-    interface Window {
-        Razorpay: any;
-    }
 }
 
 export function PaymentForm({ addressId }: PaymentFormProps) {
     const cart = useCart()
     const router = useRouter()
     const [isProcessing, setIsProcessing] = useState(false)
-    const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'cod'>('razorpay')
+    const [paymentMethod, setPaymentMethod] = useState<'cashfree' | 'cod'>('cashfree')
 
     const total = cart.items.reduce((acc, item) => acc + item.price * item.quantity, 0)
 
@@ -56,69 +51,29 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                     router.push("/checkout/success")
                 }
             } else {
-                // Handle Razorpay
-                // 1. Create Order
-                const response = await fetch("/api/create-order", {
+                // Handle Cashfree
+                const response = await fetch("/api/checkout/cashfree", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ items: cart.items }),
+                    body: JSON.stringify({ items: cart.items, addressId }),
                 })
 
-                const orderData = await response.json()
+                const data = await response.json()
 
-                if (orderData.error) {
-                    throw new Error(orderData.error)
+                if (data.error) {
+                    throw new Error(data.error)
                 }
 
-                // 2. Open Razorpay
-                const options = {
-                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                    amount: orderData.amount,
-                    currency: orderData.currency,
-                    name: "Modern Dropship Eco",
-                    description: "Order Payment",
-                    order_id: orderData.id,
-                    handler: async function (response: any) {
-                        // 3. Verify Payment
-                        try {
-                            const verifyRes = await fetch("/api/verify-payment", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    razorpay_order_id: response.razorpay_order_id,
-                                    razorpay_payment_id: response.razorpay_payment_id,
-                                    razorpay_signature: response.razorpay_signature,
-                                    items: cart.items,
-                                    addressId,
-                                }),
-                            })
+                const cashfree = await load({
+                    mode: process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === 'PRODUCTION' ? 'production' : 'sandbox',
+                })
 
-                            const verifyData = await verifyRes.json()
-
-                            if (verifyData.success) {
-                                cart.clearCart()
-                                toast.success("Payment successful!")
-                                router.push("/checkout/success")
-                            } else {
-                                toast.error(verifyData.error || "Payment verification failed")
-                            }
-                        } catch (err) {
-                            toast.error("Payment verification failed")
-                            console.error(err)
-                        }
-                    },
-                    prefill: {
-                        name: "User Name", // Could pull from profile
-                        email: "user@example.com",
-                        contact: "9999999999",
-                    },
-                    theme: {
-                        color: "#000000",
-                    },
+                if (cashfree) {
+                    cashfree.checkout({
+                        paymentSessionId: data.payment_session_id,
+                        returnUrl: `${window.location.origin}/api/checkout/verify?order_id={order_id}`,
+                    })
                 }
-
-                const paymentObject = new window.Razorpay(options)
-                paymentObject.open()
             }
 
         } catch (error: any) {
@@ -130,10 +85,6 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
 
     return (
         <>
-            <Script
-                id="razorpay-checkout-js"
-                src="https://checkout.razorpay.com/v1/checkout.js"
-            />
             <div className="space-y-6">
                 <div className="bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
                     <div className="flex justify-between items-center mb-2">
@@ -146,20 +97,20 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                     <label className="text-sm font-medium">Payment Method</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div
-                            onClick={() => setPaymentMethod('razorpay')}
+                            onClick={() => setPaymentMethod('cashfree')}
                             className={cn(
                                 "cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all duration-200",
-                                paymentMethod === 'razorpay'
+                                paymentMethod === 'cashfree'
                                     ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600 shadow-sm"
                                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950"
                             )}
                         >
                             <CreditCard className={cn(
                                 "w-6 h-6",
-                                paymentMethod === 'razorpay' ? "text-indigo-600" : "text-muted-foreground"
+                                paymentMethod === 'cashfree' ? "text-indigo-600" : "text-muted-foreground"
                             )} />
                             <div className="text-center">
-                                <p className={cn("font-medium text-sm", paymentMethod === 'razorpay' ? "text-indigo-700 dark:text-indigo-300" : "text-zinc-700 dark:text-zinc-300")}>Online Payment</p>
+                                <p className={cn("font-medium text-sm", paymentMethod === 'cashfree' ? "text-indigo-700 dark:text-indigo-300" : "text-zinc-700 dark:text-zinc-300")}>Online Payment</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">UPI, Cards, Netbanking</p>
                             </div>
                         </div>
@@ -192,7 +143,7 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                 >
                     {isProcessing
                         ? "Processing..."
-                        : paymentMethod === 'razorpay'
+                        : paymentMethod === 'cashfree'
                             ? `Pay $${total.toFixed(2)} Now`
                             : "Place Order (COD)"
                     }

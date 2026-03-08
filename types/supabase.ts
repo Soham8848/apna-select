@@ -13,4 +13,5 @@ export interface Product {
     average_rating: number | null;
     review_count: number | null;
     is_featured?: boolean;
+    inventory_count?: number | null;
 }

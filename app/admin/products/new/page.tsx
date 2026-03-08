@@ -14,6 +14,7 @@ import { convertDriveLink } from "@/lib/utils"
 export default function NewProductPage() {
     const router = useRouter();
     const [images, setImages] = useState<string[]>([]);
+    const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
 
     async function handleSubmit(formData: FormData) {
         const result = await createProduct(formData);
@@ -49,7 +50,17 @@ export default function NewProductPage() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="category">Category</Label>
-                        <Select name="category" required>
+                        <Select
+                            name={isCustomCategory ? "category_placeholder" : "category"}
+                            required={!isCustomCategory}
+                            onValueChange={(val) => {
+                                if (val === "custom") {
+                                    setIsCustomCategory(true);
+                                } else {
+                                    setIsCustomCategory(false);
+                                }
+                            }}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select Category" />
                             </SelectTrigger>
@@ -58,8 +69,18 @@ export default function NewProductPage() {
                                 <SelectItem value="Tools">Tools</SelectItem>
                                 <SelectItem value="Home & Gift">Home & Gift</SelectItem>
                                 <SelectItem value="Accessories">Accessories</SelectItem>
+                                <SelectItem value="custom" className="font-semibold text-primary">+ Add Custom Category</SelectItem>
                             </SelectContent>
                         </Select>
+                        {isCustomCategory && (
+                            <Input
+                                className="mt-2"
+                                name="category"
+                                placeholder="Enter custom category"
+                                autoFocus
+                                required
+                            />
+                        )}
                     </div>
                 </div>
 
