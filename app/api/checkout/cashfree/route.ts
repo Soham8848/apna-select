@@ -65,25 +65,35 @@ export async function POST(req: Request) {
             }
         };
 
-        const env = process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
-        const baseUrl = env === 'PRODUCTION' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
+        // 1. Log the keys to the terminal to prove they aren't undefined
+        console.log("Checking Keys:");
+        console.log("APP ID:", process.env.NEXT_PUBLIC_CASHFREE_APP_ID ? "Loaded" : "MISSING");
+        console.log("SECRET:", process.env.CASHFREE_SECRET_KEY ? "Loaded" : "MISSING");
 
-        const cfRes = await fetch(baseUrl, {
+        // 2. Force the Sandbox URL for testing
+        const cashfreeUrl = 'https://sandbox.cashfree.com/pg/orders';
+
+        // 3. Set the strict headers Cashfree requires
+        const headers = {
+            'x-api-version': '2023-08-01',
+            'x-client-id': process.env.NEXT_PUBLIC_CASHFREE_APP_ID || '',
+            'x-client-secret': process.env.CASHFREE_SECRET_KEY || '',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+
+        // 4. Make the fetch call (ensure your body payload matches Cashfree's required format)
+        const response = await fetch(cashfreeUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-version': '2023-08-01',
-                'x-client-id': process.env.NEXT_PUBLIC_CASHFREE_APP_ID || process.env.CASHFREE_APP_ID || '',
-                'x-client-secret': process.env.CASHFREE_SECRET_KEY || ''
-            },
-            body: JSON.stringify(cfOrderData)
+            headers: headers,
+            body: JSON.stringify(cfOrderData) // Agent: keep the existing payload mapping here
         });
 
-        const cfData = await cfRes.json();
+        const cfData = await response.json();
+        console.log("Cashfree Response:", cfData);
 
-        if (!cfRes.ok) {
-            console.error("Cashfree error", cfData);
-            return NextResponse.json({ error: cfData.message || "Cashfree API error" }, { status: 500 });
+        if (!response.ok) {
+            return NextResponse.json({ error: cfData.message || "Auth Failed" }, { status: response.status });
         }
 
         // 4. Update order with payment_intent_id
