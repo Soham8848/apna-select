@@ -4,7 +4,7 @@ import { OrderCard } from "@/components/orders/order-card"
 import { PackageOpen } from "lucide-react"
 
 export const metadata = {
-    title: 'Order History - Modern Dropship Eco',
+    title: 'Order History - APNA.SELECT',
     description: 'View your past orders',
 }
 

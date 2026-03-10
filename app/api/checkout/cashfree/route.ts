@@ -9,7 +9,7 @@ export async function POST(req: Request) {
         // Cashfree requires '{order_id}' exactly as written, they will replace it dynamically
         const secureReturnUrl = `${origin}/checkout/success?order_id={order_id}`;
 
-        // 1. Clean the keys (removes hidden spaces from Vercel copy-pasting)
+        // 1. Clean the keys
         const rawEnv = process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT?.trim().toUpperCase();
         const appId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.trim();
         const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { OrdersTable } from "@/components/admin/orders-table"
 
 export const metadata = {
-    title: 'Admin Orders - Modern Dropship Eco',
+    title: 'Admin Orders - APNA.SELECT',
     description: 'Manage all orders',
 }
 

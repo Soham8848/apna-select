@@ -13,8 +13,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Modern Dropshipping Store",
-  description: "Luxury Minimalist E-commerce",
+  title: {
+    default: "APNA.SELECT | India's Premium Tech & Gadget Store",
+    template: "%s | APNA.SELECT",
+  },
+  description: "Shop the world's best tech, gadgets, and lifestyle accessories at unbeatable prices. Fast shipping and premium quality guaranteed.",
 };
 
 export default function RootLayout({
