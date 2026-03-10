@@ -144,7 +144,7 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                     {isProcessing
                         ? "Processing..."
                         : paymentMethod === 'cashfree'
-                            ? `Pay $${total.toFixed(2)} Now`
+                            ? `Pay ₹${total.toFixed(2)} Now`
                             : "Place Order (COD)"
                     }
                 </Button>
