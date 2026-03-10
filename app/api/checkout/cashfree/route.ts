@@ -3,6 +3,12 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
 
+        // Safely get the origin (falls back to the known production domain if headers fail)
+        const origin = req.headers.get('origin') || 'https://apna-select.vercel.app';
+
+        // Cashfree requires '{order_id}' exactly as written, they will replace it dynamically
+        const secureReturnUrl = `${origin}/checkout/success?order_id={order_id}`;
+
         // 1. Clean the keys (removes hidden spaces from Vercel copy-pasting)
         const rawEnv = process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT?.trim().toUpperCase();
         const appId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.trim();
@@ -41,7 +47,7 @@ export async function POST(req: Request) {
             },
             order_meta: {
                 // This is handled by the frontend SDK, but we pass a dummy URL to satisfy the API
-                return_url: "http://localhost:3000/checkout/success?order_id={order_id}"
+                return_url: secureReturnUrl
             }
         };
         const response = await fetch(cashfreeUrl, {
