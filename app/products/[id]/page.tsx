@@ -68,7 +68,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 <div className="grid gap-8 lg:grid-cols-2 lg:gap-16">
 
                     {/* Left: Immersive Image Gallery */}
-                    <div className="sticky top-24 self-start">
+                    <div className="md:sticky md:top-24 md:self-start">
                         <ProductGallery images={images} title={product.title} />
                     </div>
 
@@ -147,7 +147,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
                         {/* Tech Specs - Glassmorphism */}
                         {specs && (
-                            <div className="mb-10 rounded-2xl border border-zinc-200 bg-white/50 p-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="hidden md:block mb-10 rounded-2xl border border-zinc-200 bg-white/50 p-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/50">
                                 <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Tech Specs</h3>
                                 <div className="grid gap-y-4 gap-x-8 sm:grid-cols-2">
                                     {Object.entries(specs).map(([key, value]) => (
@@ -245,7 +245,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                     <div className="flex-1">
                         <p className="text-xs text-zinc-500 uppercase tracking-wide">Total</p>
                         <p className="text-lg font-bold text-zinc-900 dark:text-white">
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.price)}
+                            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.price)}
                         </p>
                     </div>
                     <div className="flex-1">

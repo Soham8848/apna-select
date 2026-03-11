@@ -80,12 +80,28 @@ export function ProductCard({ product }: ProductCardProps) {
 
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-1">
-                                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                                <span className="text-xs font-semibold text-zinc-400">
-                                    {product.average_rating ? product.average_rating.toFixed(1) : "4.8"}
-                                </span>
-                            </div>
+                            {(!product.average_rating || !product.review_count) ? (
+                                <span className="text-xs text-muted-foreground">New</span>
+                            ) : (
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">
+                                        {[...Array(5)].map((_, i) => (
+                                            <Star 
+                                                key={i} 
+                                                className={cn(
+                                                    "w-3 h-3 transition-colors",
+                                                    i < Math.round(product.average_rating as number) 
+                                                        ? "fill-amber-500 text-amber-500" 
+                                                        : "fill-zinc-200 text-zinc-200 dark:fill-zinc-800 dark:text-zinc-800"
+                                                )} 
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className="text-xs font-semibold text-zinc-400">
+                                        {product.average_rating.toFixed(1)} <span className="font-normal text-zinc-500">({product.review_count})</span>
+                                    </span>
+                                </div>
+                            )}
                             {product.is_featured && (
                                 <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
                                     Featured

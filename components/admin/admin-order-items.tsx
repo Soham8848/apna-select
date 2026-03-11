@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Helper to calculate total
 const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)
 
 export function AdminOrderItems({ items: initialItems }: { items: any[] }) {
     const router = useRouter()
