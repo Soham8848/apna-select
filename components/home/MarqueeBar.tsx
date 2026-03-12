@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 
-const MARQUEE_CONTENT = "⚡ WORLD'S BEST PRODUCTS • 🚀 FASTEST SHIPPING • 💎 UNBEATABLE PRICES • 🔥 LIMITED DROPS • "
+const MARQUEE_CONTENT = "🚚 Free Shipping Nationwide • 📦 Delivery Ekdum Fast • 💸 Cash on Delivery - Pay at Door • 🛡️ Secure Checkout • 🔄 Easy Returns, No Tension "
 
 export function MarqueeBar() {
     return (

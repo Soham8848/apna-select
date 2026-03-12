@@ -5,6 +5,7 @@ import { ShoppingBag } from 'lucide-react'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { CartButton } from '@/components/layout/cart-button'
 import { Logo } from '@/components/ui/logo'
+import { SearchBar } from '@/components/ui/search-bar'
 
 export default async function Navbar() {
     const supabase = await createClient()
@@ -29,11 +30,18 @@ export default async function Navbar() {
                     <Logo className="h-10" showText={true} />
                 </Link>
 
+                <div className="hidden md:flex flex-1 max-w-md mx-4">
+                    <SearchBar />
+                </div>
+
                 <div className="flex items-center space-x-4">
                     <CartButton />
                     <UserNav user={user} isAdmin={isAdmin} />
                     <ThemeToggle />
                 </div>
+            </div>
+            <div className="md:hidden px-4 pb-3 w-full">
+                <SearchBar />
             </div>
         </header>
     )
