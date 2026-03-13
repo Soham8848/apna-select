@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils"
 import { load } from "@cashfreepayments/cashfree-js"
 
 interface PaymentFormProps {
-    addressId: string | null
+    address: any | null
 }
 
-export function PaymentForm({ addressId }: PaymentFormProps) {
+export function PaymentForm({ address }: PaymentFormProps) {
     const cart = useCart()
     const router = useRouter()
     const [isProcessing, setIsProcessing] = useState(false)
@@ -23,12 +23,28 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
     const total = cart.items.reduce((acc, item) => acc + item.price * item.quantity, 0)
 
     const handlePayment = async () => {
-        if (!addressId) {
+        if (!address) {
             toast.error("Please select a shipping address first.")
             return
         }
 
         setIsProcessing(true)
+
+        const addressSnapshot = {
+            line_1: address.address_line1,
+            line_2: address.address_line2 || '',
+            city: address.city,
+            state: address.state,
+            pincode: address.zip_code
+        }
+
+        const payload = {
+            items: cart.items,
+            addressSnapshot,
+            name: address.full_name,
+            email: address.email,
+            phone: address.phone
+        }
 
         try {
             if (paymentMethod === 'cod') {
@@ -36,7 +52,7 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                 const response = await fetch("/api/create-cod-order", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ items: cart.items, addressId }),
+                    body: JSON.stringify(payload),
                 })
 
                 const data = await response.json()
@@ -55,7 +71,7 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                 const response = await fetch("/api/checkout/cashfree", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ items: cart.items, addressId }),
+                    body: JSON.stringify(payload),
                 })
 
                 const data = await response.json()
@@ -139,7 +155,7 @@ export function PaymentForm({ addressId }: PaymentFormProps) {
                 <Button
                     className="w-full h-12 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
                     onClick={handlePayment}
-                    disabled={isProcessing || total === 0 || !addressId}
+                    disabled={isProcessing || total === 0 || !address}
                 >
                     {isProcessing
                         ? "Processing..."

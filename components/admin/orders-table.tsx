@@ -124,9 +124,31 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                                         {order.id.slice(0, 8)}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{order.shipping_address?.full_name || "Guest"}</span>
-                                            <span className="text-xs text-muted-foreground">{order.shipping_address?.city || "N/A"}</span>
+                                        <div className="flex flex-col gap-1 items-start">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">{order.customer_name || order.shipping_address?.full_name || "Unknown"}</span>
+                                                {order.user_id ? (
+                                                    <Badge variant="outline" className="text-[10px] h-5 px-1 py-0">Registered</Badge>
+                                                ) : (
+                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1 py-0">Guest</Badge>
+                                                )}
+                                            </div>
+                                            <span className="text-xs text-muted-foreground">
+                                                {order.customer_email || "N/A"} • {order.customer_phone || "N/A"}
+                                            </span>
+                                            <div className="text-[10px] text-muted-foreground leading-tight mt-1 max-w-[200px] truncate">
+                                                {order.order_address_snapshot ? (
+                                                    <>
+                                                        {order.order_address_snapshot.line_1}, {order.order_address_snapshot.city}, {order.order_address_snapshot.state} - {order.order_address_snapshot.pincode}
+                                                    </>
+                                                ) : order.shipping_address ? (
+                                                    <>
+                                                        {order.shipping_address.address_line1}, {order.shipping_address.city}, {order.shipping_address.state}
+                                                    </>
+                                                ) : (
+                                                    "No address"
+                                                )}
+                                            </div>
                                         </div>
                                     </TableCell>
                                     <TableCell>

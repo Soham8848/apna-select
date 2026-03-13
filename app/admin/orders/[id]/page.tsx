@@ -85,6 +85,38 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                                     <span className="font-medium">${order.total_amount}</span>
                                 </div>
                             </div>
+
+                            <Separator />
+                            
+                            <div>
+                                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                                    Customer Details
+                                    {order.user_id ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground border inline-block">Registered</span>
+                                    ) : (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground border inline-block">Guest</span>
+                                    )}
+                                </h3>
+                                <p className="text-sm font-medium">{order.customer_name || order.shipping_address?.full_name || "Unknown"}</p>
+                                <p className="text-sm text-muted-foreground">{order.customer_email || "N/A"} • {order.customer_phone || "N/A"}</p>
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                    {order.order_address_snapshot ? (
+                                        <>
+                                            {order.order_address_snapshot.line_1}<br />
+                                            {order.order_address_snapshot.line_2 && <>{order.order_address_snapshot.line_2}<br /></>}
+                                            {order.order_address_snapshot.city}, {order.order_address_snapshot.state} - {order.order_address_snapshot.pincode}
+                                        </>
+                                    ) : order.shipping_address ? (
+                                        <>
+                                            {order.shipping_address.address_line1}<br />
+                                            {order.shipping_address.address_line2 && <>{order.shipping_address.address_line2}<br /></>}
+                                            {order.shipping_address.city}, {order.shipping_address.state}
+                                        </>
+                                    ) : (
+                                        "No shipping address"
+                                    )}
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 

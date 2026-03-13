@@ -95,13 +95,39 @@ export function AddressSelection({ onSelect }: AddressSelectionProps) {
     }
 
     async function handleAddAddress(formData: FormData) {
-        const result = await addUserAddress(formData)
-        if (result?.error) {
-            toast.error(result.error)
-        } else {
+        const address = {
+            id: `guest-${Date.now()}`,
+            full_name: formData.get('name') as string,
+            address_line1: formData.get('line1') as string,
+            address_line2: formData.get('line2') as string,
+            city: formData.get('city') as string,
+            state: formData.get('state') as string,
+            zip_code: formData.get('postal_code') as string,
+            country: formData.get('country') as string,
+            phone: formData.get('phone') as string,
+            email: formData.get('email') as string,
+            is_default: false
+        }
+
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (user) {
+            const result = await addUserAddress(formData)
+            if (result?.error) {
+                toast.error(result.error)
+                return
+            }
             toast.success("Address added")
             setIsDialogOpen(false)
             loadAddresses()
+            // We don't handleSelect here immediately because loadAddresses will auto-select the latest, 
+            // but for immediate feedback we could. Let loadAddresses handle it.
+        } else {
+            setAddresses(prev => [address, ...prev])
+            toast.success("Address added")
+            setIsDialogOpen(false)
+            handleSelect(address)
         }
     }
 
@@ -160,7 +186,7 @@ export function AddressSelection({ onSelect }: AddressSelectionProps) {
                         <form action={handleAddAddress} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="name">Full Name</Label>
-                                <Input id="name" name="name" required placeholder="John Doe" />
+                                <Input id="name" name="name" required placeholder="full name" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="line1">Address Line 1</Label>
@@ -187,17 +213,17 @@ export function AddressSelection({ onSelect }: AddressSelectionProps) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="country">Country</Label>
-                                    <Input id="country" name="country" required defaultValue="United States" />
+                                    <Input id="country" name="country" required defaultValue="India" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="phone">Phone Number</Label>
-                                    <Input id="phone" name="phone" type="tel" required placeholder="+1 (555) 000-0000" />
+                                    <Input id="phone" name="phone" type="tel" required placeholder="+91-000000-0000" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email Address</Label>
-                                    <Input id="email" name="email" type="email" required placeholder="john@example.com" />
+                                    <Input id="email" name="email" type="email" required placeholder="User@gmail.com" />
                                 </div>
                             </div>
                             <DialogFooter>

@@ -7,7 +7,7 @@ import { PaymentForm } from "@/components/checkout/payment-form"
 import { FadeIn } from "@/components/ui/FadeIn"
 
 export default function CheckoutPage() {
-    const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+    const [selectedAddress, setSelectedAddress] = useState<any | null>(null)
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 py-12">
@@ -24,16 +24,16 @@ export default function CheckoutPage() {
                                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-sm">1</span>
                                     Shipping Address
                                 </h2>
-                                <AddressSelection onSelect={(addr) => setSelectedAddressId(addr.id)} />
+                                <AddressSelection onSelect={(addr) => setSelectedAddress(addr)} />
                             </div>
 
                             {/* Step 2: Payment */}
-                            <div className={`bg-white dark:bg-zinc-900 p-6 rounded-xl border shadow-sm transition-opacity ${!selectedAddressId ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <div className={`bg-white dark:bg-zinc-900 p-6 rounded-xl border shadow-sm transition-opacity ${!selectedAddress ? 'opacity-50 pointer-events-none' : ''}`}>
                                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-sm">2</span>
                                     Payment
                                 </h2>
-                                <PaymentForm addressId={selectedAddressId} />
+                                <PaymentForm address={selectedAddress} />
                             </div>
                         </div>
 
