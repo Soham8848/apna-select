@@ -15,29 +15,36 @@ export function CyberLoader({ size = "md", fullScreen = false }: { size?: "sm" |
 
     const loader = (
         <div className="relative flex items-center justify-center">
-            {/* Outer Ring - Cyan */}
+            {/* Outer Ring - Zinc/White */}
             <div className={cn(
                 sizeClasses[size],
-                "border-t-cyan-400 border-r-transparent border-b-cyan-400 border-l-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+                "border-t-zinc-900 border-b-zinc-900 border-l-transparent border-r-transparent dark:border-t-white dark:border-b-white rounded-full animate-spin"
             )}
             />
-            {/* Inner Ring - Purple (Spins reverse) */}
+            {/* Inner Ring - Blue/Purple (Spins reverse) */}
             <div
                 className={cn(
-                    "absolute rounded-full animate-spin border-t-purple-500 border-r-transparent border-b-purple-500 border-l-transparent",
+                    "absolute rounded-full animate-spin border-t-transparent border-b-transparent border-l-blue-500 border-r-purple-500",
                     innerSizeClasses[size]
                 )}
-                style={{ animationDirection: 'reverse', animationDuration: '1s' }}
+                style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}
             />
+            {/* Center pulsing dot based on size */}
+            {size !== 'sm' && (
+                <div className={cn(
+                    "absolute rounded-full bg-zinc-900 dark:bg-white animate-pulse",
+                    size === 'lg' ? "w-3 h-3" : "w-1.5 h-1.5"
+                )} />
+            )}
         </div>
     )
 
     if (fullScreen) {
         return (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/70 dark:bg-zinc-950/70 backdrop-blur-md">
                 {loader}
-                <div className="mt-4 text-sm font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 animate-pulse uppercase">
-                    Loading System...
+                <div className="mt-6 text-sm font-bold tracking-[0.3em] text-zinc-900 dark:text-white animate-pulse uppercase">
+                    APNA.SELECT
                 </div>
             </div>
         )

@@ -28,7 +28,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     return (
         <div className="space-y-4">
             {/* Main View */}
-            <div className="relative w-full max-w-full flex-shrink-0 max-h-[60vh] mx-auto flex items-center justify-center p-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 md:aspect-square">
+            <div className="relative mx-auto flex items-center justify-center p-4 bg-white dark:bg-zinc-950 rounded-2xl max-h-[60vh] w-full border border-zinc-200 dark:border-zinc-800 md:aspect-square">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeIndex}
@@ -36,14 +36,14 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="relative w-full h-full flex items-center justify-center"
+                        className="relative w-full h-full max-h-[60vh] flex items-center justify-center"
                     >
                         <Image
                             src={activeImage}
                             alt={`${title} - View ${activeIndex + 1}`}
                             width={500}
                             height={500}
-                            className="object-contain max-h-[50vh] w-full h-auto max-w-full aspect-square object-center md:object-cover md:w-full md:h-full"
+                            className="object-contain max-w-full max-h-full h-auto w-auto aspect-square object-center md:object-cover md:w-full md:h-full"
                             priority
                         />
                     </motion.div>

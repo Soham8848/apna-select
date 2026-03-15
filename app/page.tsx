@@ -1,8 +1,8 @@
-import { Hero } from "@/components/home/Hero";
 import { MarqueeBar } from "@/components/home/MarqueeBar";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
 import { CategoryCarousel } from "@/components/home/category-carousel";
 import { createClient } from "@/lib/supabase/server";
+import { HeroCarousel } from "@/components/ui/hero-carousel";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -16,7 +16,10 @@ export default async function Home() {
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <MarqueeBar />
       <CategoryCarousel categories={uniqueCategories} />
-      <Hero />
+      
+      <div className="my-6 px-4 md:px-8">
+        <HeroCarousel />
+      </div>
 
       <div id="latest-drops">
         <FeaturedProducts initialProducts={products || []} />
