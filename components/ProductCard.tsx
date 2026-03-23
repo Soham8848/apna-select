@@ -86,14 +86,14 @@ export function ProductCard({ product }: ProductCardProps) {
                                 <div className="flex items-center gap-1.5">
                                     <div className="flex items-center gap-0.5">
                                         {[...Array(5)].map((_, i) => (
-                                            <Star 
-                                                key={i} 
+                                            <Star
+                                                key={i}
                                                 className={cn(
                                                     "w-3 h-3 transition-colors",
-                                                    i < Math.round(product.average_rating as number) 
-                                                        ? "fill-amber-500 text-amber-500" 
+                                                    i < Math.round(product.average_rating as number)
+                                                        ? "fill-amber-500 text-amber-500"
                                                         : "fill-zinc-200 text-zinc-200 dark:fill-zinc-800 dark:text-zinc-800"
-                                                )} 
+                                                )}
                                             />
                                         ))}
                                     </div>

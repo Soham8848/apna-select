@@ -24,7 +24,7 @@ export default async function Navbar() {
     }
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-white/80 dark:bg-black/80 backdrop-blur-md border-gray-100 dark:border-white/10">
+        <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-zinc-950 border-gray-100 dark:border-white/10">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                 <Link href="/" className="flex items-center space-x-2">
                     <Logo className="h-10" showText={true} />

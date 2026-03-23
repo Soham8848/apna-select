@@ -22,7 +22,7 @@ export function HeroCarousel() {
   }, []);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl aspect-[16/9] md:aspect-[21/9] bg-zinc-100 dark:bg-zinc-900">
+    <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] bg-transparent">
       <div 
         className="flex h-full transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}

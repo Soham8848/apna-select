@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import { CartSheet } from "@/components/cart/cart-sheet";
 import { Footer } from "@/components/layout/footer";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,6 +29,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased min-h-screen flex flex-col`}>
+        {/* Google Analytics Tracker */}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-1PHWYG5001" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-1PHWYG5001');
+          `}
+        </Script>
         <Providers>
           <Navbar />
           <CartSheet />

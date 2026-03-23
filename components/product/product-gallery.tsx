@@ -19,16 +19,16 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
     if (!activeImage) {
         return (
-            <div className="relative aspect-square overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400">
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400">
                 No Image
             </div>
         )
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 w-full max-w-full">
             {/* Main View */}
-            <div className="relative mx-auto flex items-center justify-center p-4 bg-white dark:bg-zinc-950 rounded-2xl max-h-[60vh] w-full border border-zinc-200 dark:border-zinc-800 md:aspect-square">
+            <div className="relative mx-auto w-full aspect-square max-h-[60vh] bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeIndex}
@@ -36,14 +36,13 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="relative w-full h-full max-h-[60vh] flex items-center justify-center"
+                        className="absolute inset-0 w-full h-full p-4 flex items-center justify-center"
                     >
                         <Image
                             src={activeImage}
                             alt={`${title} - View ${activeIndex + 1}`}
-                            width={500}
-                            height={500}
-                            className="object-contain max-w-full max-h-full h-auto w-auto aspect-square object-center md:object-cover md:w-full md:h-full"
+                            fill
+                            className="object-contain p-4"
                             priority
                         />
                     </motion.div>
@@ -52,14 +51,14 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
             {/* Thumbnails */}
             {displayImages.length > 1 && (
-                <div className="w-full min-w-0">
-                    <div className="flex w-full overflow-x-auto snap-x scrollbar-hide gap-3 pb-2">
+                <div className="w-full">
+                    <div className="flex flex-row overflow-x-auto snap-x scrollbar-hide gap-3 w-full px-1 py-2">
                         {displayImages.map((img, i) => (
                             <button
                                 key={i}
                                 onClick={() => setActiveIndex(i)}
                                 className={cn(
-                                    "flex-shrink-0 snap-start w-20 h-20 relative rounded-md overflow-hidden border-2 transition-all duration-200",
+                                    "flex-shrink-0 snap-center w-20 h-20 relative rounded-md overflow-hidden border-2 transition-all duration-200",
                                     activeIndex === i
                                         ? "border-blue-500 ring-2 ring-blue-500/20"
                                         : "border-zinc-200 hover:border-zinc-900 dark:border-zinc-800 dark:hover:border-zinc-100"

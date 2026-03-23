@@ -17,7 +17,7 @@ export default async function Home() {
       <MarqueeBar />
       <CategoryCarousel categories={uniqueCategories} />
       
-      <div className="my-6 px-4 md:px-8">
+      <div className="my-6">
         <HeroCarousel />
       </div>
 

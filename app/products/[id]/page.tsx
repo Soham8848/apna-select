@@ -61,14 +61,14 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     const images = product.images || (product.image_url ? [product.image_url] : [])
 
     return (
-        <div className="min-h-screen bg-zinc-50 pb-32 md:pb-20 dark:bg-zinc-950/50">
+        <div className="min-h-screen bg-zinc-50 pb-32 md:pb-20 dark:bg-zinc-950/50 overflow-x-hidden w-full max-w-[100vw]">
             <div className="container mx-auto px-4 py-8">
 
                 {/* Top Section: Grid */}
                 <div className="grid gap-8 lg:grid-cols-2 lg:gap-16">
 
                     {/* Left: Immersive Image Gallery */}
-                    <div className="md:sticky md:top-24 md:self-start">
+                    <div className="md:sticky md:top-24 md:self-start min-w-0">
                         <ProductGallery images={images} title={product.title} />
                     </div>
 
