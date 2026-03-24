@@ -14,7 +14,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     const [activeIndex, setActiveIndex] = useState(0)
 
     // Fallbacks
-    const displayImages = images && images.length > 0 ? images : []
+    const displayImages = images?.filter((img) => typeof img === 'string' && img.trim() !== '') || []
     const activeImage = displayImages[activeIndex]
 
     if (!activeImage) {

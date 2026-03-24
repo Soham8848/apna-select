@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import { CartSheet } from "@/components/cart/cart-sheet";
 import { Footer } from "@/components/layout/footer";
+import { FloatingContact } from "@/components/ui/floating-contact";
 import Script from "next/script";
 
 const inter = Inter({
@@ -47,6 +48,7 @@ export default function RootLayout({
           </main>
           <Footer />
           <Toaster />
+          <FloatingContact />
         </Providers>
       </body>
     </html>

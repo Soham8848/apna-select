@@ -4,17 +4,17 @@ import Link from "next/link";
 import Image from "next/image";
 
 const defaultCategories = [
+  { id: 6, english: "Electronics", hinglish: "Gadget Gali", imageUrl: "/images/categories/electronics.jpg" },
+  { id: 4, english: "Beauty", hinglish: "Sajna Sawarna", imageUrl: "/images/categories/beauty.jpg" },
+  { id: 8, english: "Accessories", hinglish: "Style Ka Tadka", imageUrl: "/images/categories/accessories.jpg" },
+  { id: 7, english: "Home & Gift", hinglish: "Ghar Ki Raunak", imageUrl: "/images/categories/home-gift.jpg" },
+  { id: 11, english: "Kitchen", hinglish: "Kitchen Khazana", imageUrl: "/images/categories/kitchen.jpg" },
   { id: 1, english: "Audio", hinglish: "Shor Sharaba", imageUrl: "/images/categories/audio.jpg" },
   { id: 2, english: "Wearables", hinglish: "Wrist Pe Swag", imageUrl: "/images/categories/wearables.jpg" },
   { id: 3, english: "Mobile Accs", hinglish: "Phone Ka Shringar", imageUrl: "/images/categories/mobile-accs.jpg" },
-  { id: 4, english: "Beauty", hinglish: "Sajna Sawarna", imageUrl: "/images/categories/beauty.jpg" },
   { id: 5, english: "Gaming", hinglish: "Noob to Pro", imageUrl: "/images/categories/gaming.jpg" },
-  { id: 6, english: "Electronics", hinglish: "Gadget Gali", imageUrl: "/images/categories/electronics.jpg" },
-  { id: 7, english: "Home & Gift", hinglish: "Ghar Ki Raunak", imageUrl: "/images/categories/home-gift.jpg" },
-  { id: 8, english: "Accessories", hinglish: "Style Ka Tadka", imageUrl: "/images/categories/accessories.jpg" },
   { id: 9, english: "Tools", hinglish: "Jugaad Junction", imageUrl: "/images/categories/tools.jpg" },
   { id: 10, english: "Quirky Items", hinglish: "Khatarnak Collection", imageUrl: "/images/categories/quirky.jpg" },
-  { id: 11, english: "Kitchen", hinglish: "Kitchen Khazana", imageUrl: "/images/categories/kitchen.jpg" },
   { id: 12, english: "Health & Care", hinglish: "Apna Khayal", imageUrl: "/images/categories/health.jpg" },
   { id: 13, english: "Kids & Baby", hinglish: "Chillar Party", imageUrl: "/images/categories/kids.jpg" },
   { id: 14, english: "Travel", hinglish: "Safar Ka Sathi", imageUrl: "/images/categories/travel.jpg" },

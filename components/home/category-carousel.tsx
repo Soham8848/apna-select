@@ -70,7 +70,7 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
                 {/* Shop All Circle */}
                 <Link
                     href="/products"
-                    className="flex flex-col items-center gap-2 flex-shrink-0 snap-center group"
+                    className="flex flex-col items-center gap-2 flex-shrink-0 snap-center group cursor-pointer"
                 >
                     <div className="w-20 h-20 md:w-24 md:h-24 relative rounded-full border-2 border-slate-100 dark:border-zinc-800 shadow-sm transition-transform duration-300 hover:-translate-y-1 bg-slate-50 dark:bg-zinc-900 flex items-center justify-center">
                         <LayoutGrid strokeWidth={1.5} className="w-8 h-8 text-slate-800 dark:text-slate-200 transform transition-transform duration-300 group-hover:scale-110" />
