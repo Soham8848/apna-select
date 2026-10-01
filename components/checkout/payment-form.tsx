@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { load } from "@cashfreepayments/cashfree-js"
 
 import { useCart } from "@/store/use-cart"
-import { inr, orderTotals, PaymentMethod, COD_FEE } from "@/lib/commerce"
+import { inr, orderTotals, PaymentMethod, COD_FEE, COD_MINIMUM, codAvailable } from "@/lib/commerce"
 import { cn } from "@/lib/utils"
 
 interface PaymentFormProps {
@@ -40,7 +40,12 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
     const router = useRouter()
     const [isProcessing, setIsProcessing] = useState(false)
 
-    const totals = orderTotals(cart.items, method)
+    const subtotal = cart.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    const codOk = codAvailable(subtotal)
+    // If COD became unavailable (items removed), fall back so the shopper is
+    // never looking at a total for a method they cannot actually use.
+    const effectiveMethod: PaymentMethod = method === "cod" && !codOk ? "prepaid" : method
+    const totals = orderTotals(cart.items, effectiveMethod)
 
     const handlePayment = async () => {
         if (!address) {
@@ -73,7 +78,7 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
         }
 
         try {
-            if (method === "cod") {
+            if (effectiveMethod === "cod") {
                 const response = await fetch("/api/create-cod-order", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -127,15 +132,19 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
             <fieldset className="space-y-2.5">
                 <legend className="sr-only">Payment method</legend>
                 {OPTIONS.map(({ id, icon: Icon, title, detail, badge }) => {
-                    const selected = method === id
+                    const selected = effectiveMethod === id
+                    const unavailable = id === "cod" && !codOk
                     return (
                         <label
                             key={id}
                             className={cn(
-                                "flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors",
+                                "flex items-start gap-3 rounded-xl border-2 p-4 transition-colors",
+                                unavailable
+                                    ? "cursor-not-allowed border-border opacity-55"
+                                    : "cursor-pointer",
                                 selected
                                     ? "border-accent bg-accent/5"
-                                    : "border-border hover:border-accent/40"
+                                    : !unavailable && "border-border hover:border-accent/40"
                             )}
                         >
                             <input
@@ -143,6 +152,7 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
                                 name="payment-method"
                                 value={id}
                                 checked={selected}
+                                disabled={unavailable}
                                 onChange={() => onMethodChange(id)}
                                 className="mt-1 size-4 accent-[var(--accent)]"
                             />
@@ -158,10 +168,16 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
                                 <p
                                     className={cn(
                                         "mt-1.5 text-[11px] font-bold",
-                                        id === "prepaid" ? "text-trust" : "text-muted-foreground"
+                                        unavailable
+                                            ? "text-urgent"
+                                            : id === "prepaid"
+                                              ? "text-trust"
+                                              : "text-muted-foreground"
                                     )}
                                 >
-                                    {badge}
+                                    {unavailable
+                                        ? `Needs an order of ${inr(COD_MINIMUM)} or more`
+                                        : badge}
                                 </p>
                             </div>
                         </label>
@@ -184,7 +200,7 @@ export function PaymentForm({ address, method, onMethodChange }: PaymentFormProp
                         <Loader2 className="size-5 animate-spin" />
                         Processing…
                     </>
-                ) : method === "cod" ? (
+                ) : effectiveMethod === "cod" ? (
                     <>Place order · {inr(totals.total)}</>
                 ) : (
                     <>

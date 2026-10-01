@@ -6,6 +6,7 @@ import { CartButton } from '@/components/layout/cart-button'
 import { Logo } from '@/components/ui/logo'
 import { SearchBar } from '@/components/ui/search-bar'
 import { CATEGORIES } from '@/lib/categories'
+import { PRICE_TIERS } from '@/lib/price-tiers'
 
 /** A short, opinionated nav. Long menus defer the decision; these do not. */
 const PRIMARY_LINKS = [
@@ -64,6 +65,18 @@ export default async function Navbar() {
                             className="font-semibold text-muted-foreground transition-colors hover:text-accent"
                         >
                             {link.label}
+                        </Link>
+                    ))}
+                    <span className="h-4 w-px bg-border" aria-hidden />
+                    {/* Shop-by-budget links sit in the nav, not just on the homepage:
+                        for a value shopper this is the primary way in. */}
+                    {PRICE_TIERS.slice(0, 4).map((tier) => (
+                        <Link
+                            key={tier.slug}
+                            href={`/deals/${tier.slug}`}
+                            className="whitespace-nowrap font-semibold text-accent transition-opacity hover:opacity-75"
+                        >
+                            {tier.label}
                         </Link>
                     ))}
                     <span className="h-4 w-px bg-border" aria-hidden />

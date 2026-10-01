@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { COD_FEE, FREE_SHIPPING_THRESHOLD, SHIPPING_FEE, PaymentMethod } from "@/lib/commerce";
+import { COD_FEE, COD_MINIMUM, FREE_SHIPPING_THRESHOLD, SHIPPING_FEE, PaymentMethod } from "@/lib/commerce";
 
 export interface IncomingItem {
     id?: string | number;
@@ -105,6 +105,15 @@ export async function priceOrder(
     }
 
     const subtotal = lines.reduce((sum, l) => sum + l.line_total, 0);
+
+    // Enforced here, not just in the UI: the client could post "cod" for a
+    // basket below the threshold otherwise.
+    if (method === "cod" && subtotal < COD_MINIMUM) {
+        return {
+            error: `Cash on delivery needs an order of at least Rs ${COD_MINIMUM}. Please pay online for this order.`,
+        };
+    }
+
     const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
     const codFee = method === "cod" ? COD_FEE : 0;
 

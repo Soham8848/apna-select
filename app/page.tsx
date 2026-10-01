@@ -10,6 +10,9 @@ import { SectionHeader } from "@/components/storefront/section-header";
 import { DealCountdown } from "@/components/storefront/deal-countdown";
 import { SocialProof, ReviewQuote } from "@/components/storefront/social-proof";
 import { TrustBar } from "@/components/commerce/trust";
+import { BudgetTiers } from "@/components/storefront/budget-tiers";
+import { bestsellerIds } from "@/lib/server/bestsellers";
+import { getFavoriteIds } from "@/app/actions/favorite-actions";
 
 export const revalidate = 60;
 
@@ -36,6 +39,18 @@ export default async function Home() {
         .order("created_at", { ascending: false });
 
     const products = (data || []) as Product[];
+
+    // Real top sellers and the shopper's saved items, both used to decorate cards.
+    const [topSellerIds, favoriteIds] = await Promise.all([
+        bestsellerIds(supabase, 8),
+        getFavoriteIds(),
+    ]);
+    const bestsellers = new Set(topSellerIds);
+    const favorites = new Set(favoriteIds);
+
+    const bestsellerProducts = topSellerIds
+        .map((id) => products.find((p) => String(p.id) === id))
+        .filter((p): p is Product => Boolean(p));
 
     const categoryNames = Array.from(
         new Set(products.map((p) => p.category).filter(Boolean))
@@ -136,6 +151,15 @@ export default async function Home() {
                 <CategoryRail names={categoryNames} />
             </section>
 
+            <section className="shell pb-2">
+                <SectionHeader
+                    eyebrow="Pick your price"
+                    title="Deals for every budget"
+                    subtitle="Know what you want to spend? Start there."
+                />
+                <BudgetTiers prices={products.map((p) => p.price)} />
+            </section>
+
             {deals.length > 0 && (
                 <section className="bg-surface-sunken py-8">
                     <div className="shell">
@@ -150,6 +174,18 @@ export default async function Home() {
                         </div>
                         <ProductRail products={deals} />
                     </div>
+                </section>
+            )}
+
+            {bestsellerProducts.length >= 3 && (
+                <section className="shell py-10">
+                    <SectionHeader
+                        eyebrow="Most ordered"
+                        title="Best sellers"
+                        subtitle="What other shoppers are actually buying."
+                        href="/products"
+                    />
+                    <ProductRail products={bestsellerProducts} />
                 </section>
             )}
 
@@ -177,7 +213,11 @@ export default async function Home() {
                             : undefined
                     }
                 />
-                <ShopGrid products={products} />
+                <ShopGrid
+                    products={products}
+                    bestsellers={bestsellers}
+                    favorites={favorites}
+                />
             </section>
 
             <SocialProof reviews={reviewQuotes} />

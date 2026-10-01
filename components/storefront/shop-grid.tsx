@@ -19,7 +19,17 @@ const PAGE_SIZE = 20;
  * actually reveals more products. Before, it ran a 1.5s fake spinner and then
  * showed the same grid — which is worse than having no button at all.
  */
-export function ShopGrid({ products }: { products: Product[] }) {
+export function ShopGrid({
+    products,
+    bestsellers,
+    favorites,
+}: {
+    products: Product[];
+    /** Ids of real top sellers, for the badge. */
+    bestsellers?: Set<string>;
+    /** Ids the signed-in shopper has already saved. */
+    favorites?: Set<string>;
+}) {
     const [active, setActive] = useState("All");
     const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -74,7 +84,13 @@ export function ShopGrid({ products }: { products: Product[] }) {
                 <>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                         {shown.map((product, i) => (
-                            <ProductCard key={product.id} product={product} priority={i < 4} />
+                            <ProductCard
+                                key={product.id}
+                                product={product}
+                                priority={i < 4}
+                                bestseller={bestsellers?.has(String(product.id))}
+                                favorited={favorites?.has(String(product.id))}
+                            />
                         ))}
                     </div>
 

@@ -3,11 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Check, ImageOff, ShoppingCart } from "lucide-react";
+import { Check, Flame, ImageOff, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 import { Price } from "@/components/commerce/price";
 import { Rating } from "@/components/commerce/rating";
+import { WishlistButton } from "@/components/commerce/wishlist-button";
 import { discountPercent, stockState } from "@/lib/commerce";
 import { useCart } from "@/store/use-cart";
 import { Product } from "@/types/supabase";
@@ -17,6 +18,10 @@ interface ProductCardProps {
     product: Product;
     /** Above-the-fold tiles get priority loading; the rest stay lazy. */
     priority?: boolean;
+    /** True when this product is among the real top sellers. */
+    bestseller?: boolean;
+    /** Whether the signed-in shopper has already saved this product. */
+    favorited?: boolean;
 }
 
 /**
@@ -29,7 +34,12 @@ interface ProductCardProps {
  * product names were literally invisible. Everything is on theme tokens now,
  * so it is correct in both themes by construction.
  */
-export function ProductCard({ product, priority = false }: ProductCardProps) {
+export function ProductCard({
+    product,
+    priority = false,
+    bestseller = false,
+    favorited = false,
+}: ProductCardProps) {
     const cart = useCart();
     const [added, setAdded] = useState(false);
 
@@ -85,6 +95,19 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 {pct !== null && (
                     <span className="absolute left-0 top-2.5 rounded-r-md bg-urgent px-2 py-1 text-[11px] font-extrabold uppercase tracking-wide text-urgent-foreground shadow-sm">
                         {pct}% off
+                    </span>
+                )}
+
+                <WishlistButton
+                    productId={product.id}
+                    initialFavorited={favorited}
+                    className="absolute right-2 top-2 z-10"
+                />
+
+                {bestseller && stock.inStock && (
+                    <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-ink/85 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+                        <Flame className="size-3 text-accent" />
+                        Best seller
                     </span>
                 )}
 

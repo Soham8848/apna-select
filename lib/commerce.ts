@@ -64,6 +64,21 @@ export const SHIPPING_FEE = 49;
 /** Extra fee for cash on delivery, charged to offset COD handling + RTO risk. */
 export const COD_FEE = 29;
 
+/**
+ * Minimum order value for cash on delivery.
+ *
+ * A refused ₹49 COD parcel costs more in two-way shipping than the order was
+ * ever worth, so very small baskets must be prepaid. Nudging these orders to
+ * prepaid is one of the few levers that improves margin without raising a
+ * single price.
+ */
+export const COD_MINIMUM = 299;
+
+/** Whether cash on delivery is available for a given subtotal. */
+export function codAvailable(subtotal: number): boolean {
+    return subtotal >= COD_MINIMUM;
+}
+
 export type PaymentMethod = "prepaid" | "cod";
 
 export interface OrderTotals {

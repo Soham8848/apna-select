@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useCart } from "@/store/use-cart";
 import { Product } from "@/types/supabase";
 import { stockState } from "@/lib/commerce";
+import { StockAlertForm } from "@/components/product/stock-alert-form";
 import { cn } from "@/lib/utils";
 
 /**
@@ -52,15 +53,9 @@ export function BuyBox({ product, max }: { product: Product; max?: number | null
         router.push("/checkout");
     };
 
+    // An out-of-stock page used to be a dead end. Capture the intent instead.
     if (!stock.inStock) {
-        return (
-            <div className="rounded-xl border border-border bg-surface-sunken p-4 text-center">
-                <p className="font-bold">Currently out of stock</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    This item is being restocked. Check back soon.
-                </p>
-            </div>
-        );
+        return <StockAlertForm productId={product.id} />;
     }
 
     return (
