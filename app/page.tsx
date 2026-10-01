@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Product } from "@/types/supabase";
-import { discountPercent } from "@/lib/commerce";
+import { discountPercent, inr } from "@/lib/commerce";
 
-import { Hero } from "@/components/storefront/hero";
+import { Hero, HeroSlide } from "@/components/storefront/hero";
 import { CategoryRail } from "@/components/storefront/category-rail";
 import { ProductRail } from "@/components/storefront/product-rail";
 import { ShopGrid } from "@/components/storefront/shop-grid";
@@ -51,6 +51,55 @@ export default async function Home() {
 
     const newArrivals = products.slice(0, 12);
 
+    /**
+     * Hero slides are generated from the live catalogue rather than hardcoded,
+     * so the headline discount is always a real one and the promo never
+     * advertises a product that has sold out or changed price.
+     */
+    const imageOf = (p?: Product) => p?.images?.[0] || p?.image_url || "";
+    const topDeal = deals[0];
+    const topDealPct = discountPercent(topDeal?.price, topDeal?.compare_at_price);
+    const newest = newArrivals[0];
+
+    const slides: HeroSlide[] = [];
+
+    if (topDeal && topDealPct) {
+        slides.push({
+            eyebrow: "Deals of the day",
+            title: `Up to ${topDealPct}% off today`,
+            subtitle:
+                "Hand-picked gadgets, tools and home upgrades at their lowest prices of the week. Offers reset at midnight.",
+            ctaLabel: "Shop the deals",
+            href: "/products",
+            image: imageOf(topDeal),
+            badge: `Starting ${inr(topDeal.price)}`,
+        });
+    }
+
+    if (newest) {
+        slides.push({
+            eyebrow: "Just landed",
+            title: "New arrivals, every week",
+            subtitle:
+                "Fresh stock across Gadget Gali, Ghar Ki Raunak and more — be first to the good stuff.",
+            ctaLabel: "See what's new",
+            href: "/products",
+            image: imageOf(newest),
+            badge: `${products.length} products in stock`,
+        });
+    }
+
+    slides.push({
+        eyebrow: "Why Apna Select",
+        title: "Pay cash when it arrives",
+        subtitle:
+            "Cash on delivery across India, free delivery over ₹499, and 7 days to change your mind. Shop without the risk.",
+        ctaLabel: "Start shopping",
+        href: "/products",
+        image: imageOf(products[2] ?? products[0]),
+        badge: "7-day easy returns",
+    });
+
     // Reviews power the social-proof section. The table may not exist on a
     // fresh Supabase project, so a failure here must not take the page down.
     let reviewQuotes: ReviewQuote[] = [];
@@ -75,7 +124,7 @@ export default async function Home() {
 
     return (
         <>
-            <Hero />
+            <Hero slides={slides} />
 
             <section className="shell py-8">
                 <SectionHeader

@@ -46,6 +46,7 @@
 
   /* Brand semantics */
   --color-ink: var(--ink);
+  --color-accent-soft: var(--accent-soft);
   --color-ink-soft: var(--ink-soft);
   --color-trust: var(--trust);
   --color-trust-foreground: var(--trust-foreground);
@@ -71,96 +72,118 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  /* Neutrals: very slightly cool, so saffron reads warm against them */
+  /* Neutrals: a faint violet cast so the accent feels native, not pasted on */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.21 0.015 275);
+  --foreground: oklch(0.2 0.025 300);
   --surface: oklch(1 0 0);
-  --surface-sunken: oklch(0.975 0.004 275);
+  --surface-sunken: oklch(0.973 0.008 300);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.015 275);
+  --card-foreground: oklch(0.2 0.025 300);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.015 275);
+  --popover-foreground: oklch(0.2 0.025 300);
 
-  /* Ink — dark brand surface, used for headers/footers/hero slabs */
-  --ink: oklch(0.21 0.022 275);
-  --ink-soft: oklch(0.3 0.02 275);
+  /* Ink — deep violet-black for headers, footers and hero slabs */
+  --ink: oklch(0.19 0.035 300);
+  --ink-soft: oklch(0.28 0.04 300);
 
-  /* Primary = ink (structural buttons, chips) */
-  --primary: oklch(0.21 0.022 275);
+  --primary: oklch(0.19 0.035 300);
   --primary-foreground: oklch(0.99 0 0);
 
-  --secondary: oklch(0.965 0.005 275);
-  --secondary-foreground: oklch(0.21 0.015 275);
+  --secondary: oklch(0.963 0.01 300);
+  --secondary-foreground: oklch(0.2 0.025 300);
 
-  --muted: oklch(0.965 0.005 275);
-  --muted-foreground: oklch(0.52 0.015 275);
+  --muted: oklch(0.963 0.01 300);
+  --muted-foreground: oklch(0.5 0.02 300);
 
-  /* Accent = saffron. ACTIONS ONLY. */
-  --accent: oklch(0.675 0.2 42);
+  /* Accent = electric violet. ACTIONS ONLY.
+     Chosen over the previous saffron for two concrete reasons: saffron sat
+     only a few degrees from the red we use for scarcity, so CTAs and urgency
+     badges blurred together; and at L~0.68 it could not carry white label
+     text accessibly. This violet is unmistakably not-red, holds white text at
+     4.5:1, and reads premium rather than discount-bin. */
+  --accent: oklch(0.54 0.235 295);
   --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.03 295);
 
   /* Trust = emerald. Savings, COD, delivery, stock. */
-  --trust: oklch(0.6 0.14 162);
+  --trust: oklch(0.55 0.14 162);
   --trust-foreground: oklch(1 0 0);
   --trust-subtle: oklch(0.955 0.04 162);
 
-  /* Urgent = red. Scarcity only. */
-  --urgent: oklch(0.58 0.21 25);
+  /* Urgent = rose. Scarcity only. Now clearly distinct from the CTA. */
+  --urgent: oklch(0.56 0.22 18);
   --urgent-foreground: oklch(1 0 0);
-  --urgent-subtle: oklch(0.96 0.03 25);
+  --urgent-subtle: oklch(0.96 0.035 18);
 
-  --star: oklch(0.78 0.16 75);
+  --star: oklch(0.76 0.16 70);
 
-  --destructive: oklch(0.58 0.21 25);
-  --border: oklch(0.925 0.006 275);
-  --input: oklch(0.925 0.006 275);
-  --ring: oklch(0.675 0.2 42);
+  --destructive: oklch(0.56 0.22 18);
+  --border: oklch(0.92 0.008 300);
+  --input: oklch(0.92 0.008 300);
+  --ring: oklch(0.54 0.235 295);
+
+  /* Signature gradient for hero slabs and promo surfaces */
+  --gradient-brand: linear-gradient(
+    135deg,
+    oklch(0.32 0.17 295) 0%,
+    oklch(0.42 0.21 310) 45%,
+    oklch(0.52 0.2 350) 100%
+  );
 }
 
 .dark {
-  --background: oklch(0.165 0.018 275);
-  --foreground: oklch(0.97 0.004 275);
-  --surface: oklch(0.205 0.02 275);
-  --surface-sunken: oklch(0.14 0.016 275);
+  --background: oklch(0.16 0.022 300);
+  --foreground: oklch(0.97 0.006 300);
+  --surface: oklch(0.205 0.026 300);
+  --surface-sunken: oklch(0.135 0.02 300);
 
-  --card: oklch(0.205 0.02 275);
-  --card-foreground: oklch(0.97 0.004 275);
-  --popover: oklch(0.205 0.02 275);
-  --popover-foreground: oklch(0.97 0.004 275);
+  --card: oklch(0.205 0.026 300);
+  --card-foreground: oklch(0.97 0.006 300);
+  --popover: oklch(0.205 0.026 300);
+  --popover-foreground: oklch(0.97 0.006 300);
 
-  --ink: oklch(0.14 0.016 275);
-  --ink-soft: oklch(0.24 0.02 275);
+  --ink: oklch(0.135 0.02 300);
+  --ink-soft: oklch(0.24 0.026 300);
 
-  --primary: oklch(0.97 0.004 275);
-  --primary-foreground: oklch(0.18 0.018 275);
+  --primary: oklch(0.97 0.006 300);
+  --primary-foreground: oklch(0.18 0.022 300);
 
-  --secondary: oklch(0.26 0.02 275);
-  --secondary-foreground: oklch(0.97 0.004 275);
+  --secondary: oklch(0.26 0.026 300);
+  --secondary-foreground: oklch(0.97 0.006 300);
 
-  --muted: oklch(0.26 0.02 275);
-  --muted-foreground: oklch(0.7 0.015 275);
+  --muted: oklch(0.26 0.026 300);
+  --muted-foreground: oklch(0.71 0.018 300);
 
-  /* Accent lifts slightly in the dark so it stays punchy without glowing */
-  --accent: oklch(0.7 0.19 45);
-  --accent-foreground: oklch(0.16 0.01 42);
+  /* Lifted a little so it still reads as a button on a dark card, while
+     keeping white label text above 4.5:1 */
+  --accent: oklch(0.62 0.225 295);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.28 0.07 295);
 
-  --trust: oklch(0.72 0.15 162);
+  --trust: oklch(0.7 0.15 162);
   --trust-foreground: oklch(0.15 0.03 162);
-  --trust-subtle: oklch(0.27 0.045 162);
+  --trust-subtle: oklch(0.27 0.05 162);
 
-  --urgent: oklch(0.68 0.19 25);
-  --urgent-foreground: oklch(0.16 0.03 25);
-  --urgent-subtle: oklch(0.27 0.05 25);
+  --urgent: oklch(0.68 0.2 18);
+  --urgent-foreground: oklch(0.16 0.03 18);
+  --urgent-subtle: oklch(0.28 0.06 18);
 
-  --star: oklch(0.82 0.15 75);
+  --star: oklch(0.82 0.15 70);
 
-  --destructive: oklch(0.68 0.19 25);
-  --border: oklch(1 0 0 / 11%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.19 45);
+  --destructive: oklch(0.68 0.2 18);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.225 295);
+
+  --gradient-brand: linear-gradient(
+    135deg,
+    oklch(0.26 0.15 295) 0%,
+    oklch(0.34 0.19 310) 45%,
+    oklch(0.42 0.18 350) 100%
+  );
 }
 
 @layer base {
@@ -213,6 +236,13 @@
   /* Section shell — consistent gutters at phone width, centred past that */
   .shell {
     @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Signature promo surface. Used sparingly — hero and one promo strip —
+     so it stays special rather than becoming wallpaper. */
+  .brand-slab {
+    background: var(--gradient-brand);
+    color: oklch(0.99 0 0);
   }
 
   .eyebrow {
