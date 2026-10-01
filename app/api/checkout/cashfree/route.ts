@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { priceOrder } from "@/lib/server/pricing";
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { items, addressSnapshot, name, email, phone } = body;
+
+        // Price the order from the database before anything else. The request
+        // body is untrusted input: it supplies product ids and quantities only,
+        // never amounts.
+        const supabase = await createClient();
+        const priced = await priceOrder(supabase, items, "prepaid");
+        if ("error" in priced) {
+            return NextResponse.json({ error: priced.error }, { status: 400 });
+        }
+        const { order: pricedOrder } = priced;
 
         // Safely get the origin (falls back to the known production domain if headers fail)
         const origin = req.headers.get('origin') || 'https://apna-select.vercel.app';
@@ -40,7 +51,7 @@ export async function POST(req: Request) {
         };
         // 5. Payload structure (Ensure this matches your actual logic)
         const orderPayload = {
-            order_amount: items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0),
+            order_amount: pricedOrder.total,
             order_currency: "INR",
             customer_details: {
                 customer_id: "CUST_" + Date.now(),
@@ -66,11 +77,10 @@ export async function POST(req: Request) {
         }
 
         // Insert Order into Supabase
-        const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         const userId = user ? user.id : null;
-        const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+        const totalAmount = pricedOrder.total;
 
         const { data: order, error: orderError } = await supabase
             .from('orders')
@@ -93,11 +103,13 @@ export async function POST(req: Request) {
             console.error("Order Insert Error:", orderError);
         } else if (order) {
             // Create order items
-            const orderItemsData = items.map((item: any) => ({
+            // Record the database price, not the submitted one, so the order
+            // history can never disagree with what was charged.
+            const orderItemsData = pricedOrder.lines.map((line) => ({
                 order_id: order.id,
-                product_id: item.id || item.product_id,
-                quantity: item.quantity,
-                price_at_purchase: item.price
+                product_id: line.product_id,
+                quantity: line.quantity,
+                price_at_purchase: line.unit_price
             }));
             const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
             if (itemsError) {

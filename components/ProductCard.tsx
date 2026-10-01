@@ -1,158 +1,146 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Plus, Check, Star, Zap } from "lucide-react"
-import { useCart } from "@/store/use-cart"
-import { Product } from "@/types/supabase"
-import { cn } from "@/lib/utils"
-import { useState } from "react"
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import { Check, ImageOff, ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
+
+import { Price } from "@/components/commerce/price";
+import { Rating } from "@/components/commerce/rating";
+import { discountPercent, stockState } from "@/lib/commerce";
+import { useCart } from "@/store/use-cart";
+import { Product } from "@/types/supabase";
+import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
-    product: Product
+    product: Product;
+    /** Above-the-fold tiles get priority loading; the rest stay lazy. */
+    priority?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
-    const cart = useCart()
-    const [isAdded, setIsAdded] = useState(false)
+/**
+ * The storefront's workhorse. Every element here is doing a job:
+ * discount flag (why look), image (what is it), rating (do others like it),
+ * title, price, and a single accent CTA (what to do next).
+ *
+ * The previous version hardcoded `bg-zinc-900/40` and `text-white`, which
+ * rendered white titles on the near-white light-mode page background — the
+ * product names were literally invisible. Everything is on theme tokens now,
+ * so it is correct in both themes by construction.
+ */
+export function ProductCard({ product, priority = false }: ProductCardProps) {
+    const cart = useCart();
+    const [added, setAdded] = useState(false);
 
-    const handleAddToCart = (e: React.MouseEvent) => {
+    const image = product.images?.[0] || product.image_url || "";
+    const pct = discountPercent(product.price, product.compare_at_price);
+    const stock = stockState(product.inventory_count);
+
+    const handleAdd = (e: React.MouseEvent) => {
+        // The whole tile is a link, so the button must not navigate.
         e.preventDefault();
         e.stopPropagation();
+        if (!stock.inStock) return;
+
         cart.addItem({
             id: product.id.toString(),
             title: product.title,
             price: product.price,
-            image: product.image_url || product.images?.[0] || '',
+            compare_at_price: product.compare_at_price,
+            image,
             category: product.category,
         });
-        cart.onOpen();
-        setIsAdded(true);
-        setTimeout(() => setIsAdded(false), 2000);
+        setAdded(true);
+        setTimeout(() => setAdded(false), 1600);
+
+        toast.success("Added to cart", {
+            description: product.title,
+            action: { label: "View cart", onClick: () => cart.onOpen() },
+        });
     };
 
-    // Extract a tech tag or fallback to category
-    const techTag = product.specifications
-        ? Object.values(product.specifications)[0]
-        : product.category;
-
     return (
-        <Link href={`/products/${product.id}`} className="group block h-full">
-            <motion.div
-                className="relative h-full flex flex-col overflow-hidden rounded-2xl bg-zinc-900/40 backdrop-blur-md border border-white/5 transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-            >
-                {/* Image Container */}
-                <div className="relative aspect-square overflow-hidden bg-zinc-900">
-                    <motion.div
-                        className="h-full w-full"
-                        whileHover={{ scale: 1.1 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        {product.images?.[0] || product.image_url ? (
-                            <Image
-                                src={product.images?.[0] || product.image_url || ''}
-                                alt={product.title}
-                                fill
-                                className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-950">
-                                <Zap className="w-8 h-8 opacity-20" />
-                            </div>
-                        )}
-                    </motion.div>
-
-                    {/* Floating Badge */}
-                    <div className="absolute top-3 right-3 z-10">
-                        <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-widest text-zinc-300">
-                            {techTag}
-                        </div>
+        <Link
+            href={`/products/${product.id}`}
+            className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-tile transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-tile-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+            <div className="relative aspect-square overflow-hidden bg-surface-sunken">
+                {image ? (
+                    <Image
+                        src={image}
+                        alt={product.title}
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                        priority={priority}
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground/30">
+                        <ImageOff className="size-7" />
                     </div>
-                </div>
+                )}
 
-                {/* Content */}
-                <div className="flex-1 p-5 flex flex-col justify-between relative">
-                    {/* Gradient Overlay for Text Readability if needed, but using solid bg here */}
+                {/* Savings flag — the single strongest reason to stop scrolling */}
+                {pct !== null && (
+                    <span className="absolute left-0 top-2.5 rounded-r-md bg-urgent px-2 py-1 text-[11px] font-extrabold uppercase tracking-wide text-urgent-foreground shadow-sm">
+                        {pct}% off
+                    </span>
+                )}
 
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            {(!product.average_rating || !product.review_count) ? (
-                                <span className="text-xs text-muted-foreground">New</span>
-                            ) : (
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">
-                                        {[...Array(5)].map((_, i) => (
-                                            <Star
-                                                key={i}
-                                                className={cn(
-                                                    "w-3 h-3 transition-colors",
-                                                    i < Math.round(product.average_rating as number)
-                                                        ? "fill-amber-500 text-amber-500"
-                                                        : "fill-zinc-200 text-zinc-200 dark:fill-zinc-800 dark:text-zinc-800"
-                                                )}
-                                            />
-                                        ))}
-                                    </div>
-                                    <span className="text-xs font-semibold text-zinc-400">
-                                        {product.average_rating.toFixed(1)} <span className="font-normal text-zinc-500">({product.review_count})</span>
-                                    </span>
-                                </div>
-                            )}
-                            {product.is_featured && (
-                                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
-                                    Featured
-                                </span>
-                            )}
-                        </div>
-
-                        <h3 className="font-bold text-lg text-white leading-tight mb-4 min-h-[3rem] line-clamp-2" title={product.title}>
-                            {product.title}
-                        </h3>
+                {!stock.inStock && (
+                    <div className="absolute inset-0 grid place-items-center bg-background/70 backdrop-blur-[2px]">
+                        <span className="rounded-full bg-foreground px-3 py-1.5 text-xs font-bold text-background">
+                            Out of stock
+                        </span>
                     </div>
+                )}
+            </div>
 
-                    <div className="flex items-end justify-between">
-                        <div className="flex flex-col">
-                            <span className="text-xs text-zinc-500 mb-0.5">Price</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-                                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.price)}
-                                </span>
-                                {product.compare_at_price && product.compare_at_price > product.price && (
-                                    <>
-                                        <span className="text-xs text-muted-foreground line-through">
-                                            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.compare_at_price)}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-green-500">
-                                            {Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)}% OFF
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+            <div className="flex flex-1 flex-col gap-2 p-3">
+                <Rating value={product.average_rating} count={product.review_count} />
 
-                    <motion.button
-                        onClick={handleAddToCart}
+                <h3
+                    className="line-clamp-2 text-sm font-semibold leading-snug text-card-foreground"
+                    title={product.title}
+                >
+                    {product.title}
+                </h3>
+
+                {/* mt-auto pins price + CTA to the bottom so tiles align in a row
+                    even when titles wrap to different heights */}
+                <div className="mt-auto space-y-2.5 pt-1">
+                    <Price price={product.price} compareAt={product.compare_at_price} />
+
+                    {stock.tone === "urgent" && stock.inStock && (
+                        <p className="text-[11px] font-bold text-urgent">{stock.label}</p>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleAdd}
+                        disabled={!stock.inStock}
+                        aria-label={`Add ${product.title} to cart`}
                         className={cn(
-                            "flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300",
-                            isAdded
-                                ? "bg-green-500 text-black"
-                                : "bg-white text-black hover:bg-cyan-400 hover:shadow-[0_0_15px_rgba(34,211,238,0.6)]"
+                            "flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors",
+                            "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground",
+                            added
+                                ? "bg-trust text-trust-foreground"
+                                : "bg-accent text-accent-foreground hover:brightness-95 active:brightness-90"
                         )}
-                        whileTap={{ scale: 0.9 }}
                     >
-                        {isAdded ? (
-                            <Check className="w-5 h-5" />
+                        {added ? (
+                            <>
+                                <Check className="size-4" /> Added
+                            </>
                         ) : (
-                            <Plus className="w-5 h-5" />
+                            <>
+                                <ShoppingCart className="size-4" /> Add
+                            </>
                         )}
-                    </motion.button>
+                    </button>
                 </div>
-            </motion.div>
-        </Link >
-    )
+            </div>
+        </Link>
+    );
 }

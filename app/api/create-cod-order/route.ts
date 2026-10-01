@@ -1,40 +1,37 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { priceOrder } from "@/lib/server/pricing";
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { items, addressSnapshot, name, email, phone } = body;
 
-        if (!items || items.length === 0) {
-            return NextResponse.json({ error: "No items in cart" }, { status: 400 });
-        }
-
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         const userId = user ? user.id : null;
 
-        // Calculate total securely from DB
-        let total = 0;
-        const verifiedItems = [];
-
-        for (const item of items) {
-            const { data: product } = await supabase
-                .from('products')
-                .select('price, id')
-                .eq('id', item.id)
-                .single();
-
-            if (product) {
-                total += product.price * item.quantity;
-                verifiedItems.push({
-                    product_id: product.id,
-                    quantity: item.quantity,
-                    price: product.price
-                });
-            }
+        /**
+         * Price from the database, including delivery and the COD fee, so the
+         * amount stored on the order matches the total the shopper confirmed.
+         *
+         * This replaces a per-item loop that issued one query per cart line and
+         * silently dropped any product it could not find — meaning a stale cart
+         * could place an order for less than the shopper actually selected.
+         * `priceOrder` fetches every product in one query and fails loudly
+         * instead.
+         */
+        const priced = await priceOrder(supabase, items, "cod");
+        if ("error" in priced) {
+            return NextResponse.json({ error: priced.error }, { status: 400 });
         }
+        const total = priced.order.total;
+        const verifiedItems = priced.order.lines.map((line) => ({
+            product_id: line.product_id,
+            quantity: line.quantity,
+            price: line.unit_price,
+        }));
 
         // Insert Order
         // Note: Using 'cod' as payment_method and is_paid: false

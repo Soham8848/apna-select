@@ -1,30 +1,54 @@
 "use client"
 
 import { useState } from "react"
-import { useCart } from "@/store/use-cart"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import Script from "next/script"
 import { useRouter } from "next/navigation"
-import { CreditCard, Banknote } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Banknote, Loader2, Lock, Smartphone } from "lucide-react"
+import { toast } from "sonner"
 import { load } from "@cashfreepayments/cashfree-js"
+
+import { useCart } from "@/store/use-cart"
+import { inr, orderTotals, PaymentMethod, COD_FEE } from "@/lib/commerce"
+import { cn } from "@/lib/utils"
 
 interface PaymentFormProps {
     address: any | null
+    method: PaymentMethod
+    onMethodChange: (method: PaymentMethod) => void
 }
 
-export function PaymentForm({ address }: PaymentFormProps) {
+const OPTIONS = [
+    {
+        id: "prepaid" as PaymentMethod,
+        icon: Smartphone,
+        title: "Pay online",
+        detail: "UPI, cards, netbanking & wallets",
+        // Prepaid is nudged first: it removes RTO risk entirely, which is the
+        // single biggest cost in Indian dropshipping.
+        badge: "Free delivery eligible",
+    },
+    {
+        id: "cod" as PaymentMethod,
+        icon: Banknote,
+        title: "Cash on delivery",
+        detail: "Pay the courier when it arrives",
+        badge: `+${inr(COD_FEE)} handling fee`,
+    },
+]
+
+export function PaymentForm({ address, method, onMethodChange }: PaymentFormProps) {
     const cart = useCart()
     const router = useRouter()
     const [isProcessing, setIsProcessing] = useState(false)
-    const [paymentMethod, setPaymentMethod] = useState<'cashfree' | 'cod'>('cashfree')
 
-    const total = cart.items.reduce((acc, item) => acc + item.price * item.quantity, 0)
+    const totals = orderTotals(cart.items, method)
 
     const handlePayment = async () => {
         if (!address) {
-            toast.error("Please select a shipping address first.")
+            toast.error("Please add a delivery address first.")
+            return
+        }
+        if (cart.items.length === 0) {
+            toast.error("Your cart is empty.")
             return
         }
 
@@ -32,139 +56,149 @@ export function PaymentForm({ address }: PaymentFormProps) {
 
         const addressSnapshot = {
             line_1: address.address_line1,
-            line_2: address.address_line2 || '',
+            line_2: address.address_line2 || "",
             city: address.city,
             state: address.state,
-            pincode: address.zip_code
+            pincode: address.postal_code ?? address.zip_code,
         }
 
+        // Only ids and quantities are sent. The server re-prices the order from
+        // the database, so nothing here can change what gets charged.
         const payload = {
-            items: cart.items,
+            items: cart.items.map((i) => ({ id: i.id, quantity: i.quantity })),
             addressSnapshot,
             name: address.full_name,
             email: address.email,
-            phone: address.phone
+            phone: address.phone,
         }
 
         try {
-            if (paymentMethod === 'cod') {
-                // Handle Cash on Delivery
+            if (method === "cod") {
                 const response = await fetch("/api/create-cod-order", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 })
-
                 const data = await response.json()
-
-                if (data.error) {
-                    throw new Error(data.error)
-                }
+                if (data.error) throw new Error(data.error)
 
                 if (data.success) {
                     cart.clearCart()
-                    toast.success("Order placed successfully!")
+                    toast.success("Order placed. We'll be in touch shortly.")
                     router.push("/checkout/success")
+                    return
                 }
-            } else {
-                // Handle Cashfree
-                const response = await fetch("/api/checkout/cashfree", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                })
-
-                const data = await response.json()
-
-                if (data.error) {
-                    throw new Error(data.error)
-                }
-
-                const cashfree = await load({
-                    mode: process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === 'PRODUCTION' ? 'production' : 'sandbox',
-                })
-
-                if (cashfree) {
-                    cashfree.checkout({
-                        paymentSessionId: data.payment_session_id,
-                        returnUrl: `${window.location.origin}/api/checkout/verify?order_id={order_id}`,
-                    })
-                }
+                throw new Error("Could not place the order. Please try again.")
             }
 
+            const response = await fetch("/api/checkout/cashfree", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            })
+            const data = await response.json()
+            if (data.error) throw new Error(data.error)
+
+            const cashfree = await load({
+                mode:
+                    process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT?.trim().toUpperCase() ===
+                    "PRODUCTION"
+                        ? "production"
+                        : "sandbox",
+            })
+
+            if (!cashfree) throw new Error("Could not open the payment window.")
+
+            cashfree.checkout({
+                paymentSessionId: data.payment_session_id,
+                returnUrl: `${window.location.origin}/api/checkout/verify?order_id={order_id}`,
+            })
         } catch (error: any) {
-            toast.error(error.message || "Something went wrong")
+            toast.error(error?.message || "Something went wrong. Please try again.")
         } finally {
             setIsProcessing(false)
         }
     }
 
+    const disabled = isProcessing || totals.total === 0 || !address
+
     return (
-        <>
-            <div className="space-y-6">
-                <div className="bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-muted-foreground">Total to Pay</span>
-                        <span className="text-2xl font-bold">₹{total.toFixed(2)}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    <label className="text-sm font-medium">Payment Method</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div
-                            onClick={() => setPaymentMethod('cashfree')}
+        <div className="space-y-4">
+            <fieldset className="space-y-2.5">
+                <legend className="sr-only">Payment method</legend>
+                {OPTIONS.map(({ id, icon: Icon, title, detail, badge }) => {
+                    const selected = method === id
+                    return (
+                        <label
+                            key={id}
                             className={cn(
-                                "cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all duration-200",
-                                paymentMethod === 'cashfree'
-                                    ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600 shadow-sm"
-                                    : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950"
+                                "flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors",
+                                selected
+                                    ? "border-accent bg-accent/5"
+                                    : "border-border hover:border-accent/40"
                             )}
                         >
-                            <CreditCard className={cn(
-                                "w-6 h-6",
-                                paymentMethod === 'cashfree' ? "text-indigo-600" : "text-muted-foreground"
-                            )} />
-                            <div className="text-center">
-                                <p className={cn("font-medium text-sm", paymentMethod === 'cashfree' ? "text-indigo-700 dark:text-indigo-300" : "text-zinc-700 dark:text-zinc-300")}>Online Payment</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">UPI, Cards, Netbanking</p>
+                            <input
+                                type="radio"
+                                name="payment-method"
+                                value={id}
+                                checked={selected}
+                                onChange={() => onMethodChange(id)}
+                                className="mt-1 size-4 accent-[var(--accent)]"
+                            />
+                            <Icon
+                                className={cn(
+                                    "mt-0.5 size-5 shrink-0",
+                                    selected ? "text-accent" : "text-muted-foreground"
+                                )}
+                            />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold">{title}</p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+                                <p
+                                    className={cn(
+                                        "mt-1.5 text-[11px] font-bold",
+                                        id === "prepaid" ? "text-trust" : "text-muted-foreground"
+                                    )}
+                                >
+                                    {badge}
+                                </p>
                             </div>
-                        </div>
+                        </label>
+                    )
+                })}
+            </fieldset>
 
-                        <div
-                            onClick={() => setPaymentMethod('cod')}
-                            className={cn(
-                                "cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all duration-200",
-                                paymentMethod === 'cod'
-                                    ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600 shadow-sm"
-                                    : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950"
-                            )}
-                        >
-                            <Banknote className={cn(
-                                "w-6 h-6",
-                                paymentMethod === 'cod' ? "text-indigo-600" : "text-muted-foreground"
-                            )} />
-                            <div className="text-center">
-                                <p className={cn("font-medium text-sm", paymentMethod === 'cod' ? "text-indigo-700 dark:text-indigo-300" : "text-zinc-700 dark:text-zinc-300")}>Cash on Delivery</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Pay upon arrival</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <button
+                type="button"
+                onClick={handlePayment}
+                disabled={disabled}
+                className={cn(
+                    "flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-accent text-base font-bold uppercase tracking-wide text-accent-foreground shadow-cta transition",
+                    "hover:brightness-95 active:scale-[0.99]",
+                    "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                )}
+            >
+                {isProcessing ? (
+                    <>
+                        <Loader2 className="size-5 animate-spin" />
+                        Processing…
+                    </>
+                ) : method === "cod" ? (
+                    <>Place order · {inr(totals.total)}</>
+                ) : (
+                    <>
+                        <Lock className="size-4" />
+                        Pay {inr(totals.total)}
+                    </>
+                )}
+            </button>
 
-                <Button
-                    className="w-full h-12 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                    onClick={handlePayment}
-                    disabled={isProcessing || total === 0 || !address}
-                >
-                    {isProcessing
-                        ? "Processing..."
-                        : paymentMethod === 'cashfree'
-                            ? `Pay ₹${total.toFixed(2)} Now`
-                            : "Place Order (COD)"
-                    }
-                </Button>
-            </div>
-        </>
+            {!address && (
+                <p className="text-center text-xs text-muted-foreground">
+                    Add a delivery address above to continue.
+                </p>
+            )}
+        </div>
     )
 }

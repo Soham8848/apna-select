@@ -1,45 +1,113 @@
-import { createClient } from '@/lib/supabase/server'
-import { ProductCard } from '@/components/ProductCard'
+import type { Metadata } from "next";
+import Link from "next/link";
 
-export default async function CategoryPage({ params }: { params: { slug: string } }) {
-    const slug = (await params).slug;
-    const decodedSlug = decodeURIComponent(slug);
+import { createClient } from "@/lib/supabase/server";
+import { Product } from "@/types/supabase";
+import { categoryBySlug } from "@/lib/categories";
+import { ProductBrowser } from "@/components/storefront/product-browser";
+import { CategoryRail } from "@/components/storefront/category-rail";
+import { TrustBar } from "@/components/commerce/trust";
+
+export const revalidate = 60;
+
+interface PageProps {
+    params: Promise<{ slug: string }>;
+}
+
+/**
+ * Resolve a URL segment to the category name stored in Supabase.
+ *
+ * This is the fix for a real breakage: the page used to query
+ * `ilike('category', slug)` directly, so a tidy URL like `/category/home-gift`
+ * searched for the literal string "home-gift" while the column holds
+ * "Home & Gift" — the page rendered "coming soon" over a shelf that was
+ * actually full. We map through the taxonomy first and only fall back to the
+ * raw segment for categories not in our list.
+ */
+async function resolve(slug: string) {
+    const known = categoryBySlug(slug);
+    return {
+        dbName: known?.name ?? decodeURIComponent(slug),
+        display: known?.hinglish ?? decodeURIComponent(slug),
+        english: known?.name ?? decodeURIComponent(slug),
+    };
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+    const { slug } = await params;
+    const { english } = await resolve(slug);
+    return {
+        title: english,
+        description: `Shop ${english} on Apna Select. Free delivery over ₹499, cash on delivery and 7-day returns.`,
+    };
+}
+
+export default async function CategoryPage({ params }: PageProps) {
+    const { slug } = await params;
+    const { dbName, display, english } = await resolve(slug);
 
     const supabase = await createClient();
-    const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .ilike('category', decodedSlug);
+    const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .ilike("category", dbName)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-        console.error('Error fetching category products:', error);
-    }
+    if (error) console.error("Error fetching category products:", error.message);
+
+    const products = (data || []) as Product[];
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-7xl pt-24 min-h-screen">
-            <div className="mb-10 text-center">
-                <h1 className="text-4xl md:text-5xl font-bold capitalize mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-                    {decodedSlug}
+        <>
+            <div className="shell py-8">
+                <nav aria-label="Breadcrumb" className="mb-3 text-xs text-muted-foreground">
+                    <Link href="/" className="hover:text-accent hover:underline">
+                        Home
+                    </Link>
+                    <span className="mx-1.5">/</span>
+                    <Link href="/products" className="hover:text-accent hover:underline">
+                        Products
+                    </Link>
+                    <span className="mx-1.5">/</span>
+                    <span className="font-semibold text-foreground">{english}</span>
+                </nav>
+
+                <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+                    {display}
                 </h1>
-                <div className="h-1 w-24 bg-gradient-to-r from-teal-400 to-fuchsia-500 mx-auto rounded-full"></div>
+                {display !== english && (
+                    <p className="mt-1 text-sm text-muted-foreground">{english}</p>
+                )}
+
+                {products.length > 0 ? (
+                    <div className="mt-8">
+                        <ProductBrowser products={products} />
+                    </div>
+                ) : (
+                    <div className="mt-8 rounded-xl border border-dashed border-border py-16 text-center">
+                        <p className="font-display text-lg font-extrabold">
+                            New {english} stock is on the way
+                        </p>
+                        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                            This shelf is being restocked. Browse everything else meanwhile —
+                            we add new products every week.
+                        </p>
+                        <Link
+                            href="/products"
+                            className="mt-5 inline-flex h-11 items-center rounded-full bg-accent px-6 text-sm font-bold text-accent-foreground transition hover:brightness-95"
+                        >
+                            Browse all products
+                        </Link>
+                    </div>
+                )}
+
+                <div className="mt-12">
+                    <p className="eyebrow mb-3">Other categories</p>
+                    <CategoryRail />
+                </div>
             </div>
 
-            {!products || products.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-32 bg-zinc-900/40 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-fuchsia-500/5"></div>
-                    <p className="relative text-2xl md:text-3xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-fuchsia-500 text-center px-6">
-                        We are dropping new <span className="capitalize text-white">{decodedSlug}</span> gear soon. Stay tuned!
-                    </p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {products.map((product) => (
-                        <div key={product.id} className="h-full">
-                            <ProductCard product={product} />
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+            <TrustBar />
+        </>
     );
 }

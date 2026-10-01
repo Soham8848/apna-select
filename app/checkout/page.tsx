@@ -1,48 +1,107 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
+import { Lock } from "lucide-react"
+
 import { CheckoutSummary } from "@/components/checkout/checkout-summary"
 import { AddressSelection } from "@/components/checkout/address-selection"
 import { PaymentForm } from "@/components/checkout/payment-form"
-import { FadeIn } from "@/components/ui/FadeIn"
+import { PaymentMethod } from "@/lib/commerce"
 
+/**
+ * Checkout.
+ *
+ * The payment method lives here rather than inside PaymentForm, because the
+ * order summary has to react to it — picking cash on delivery adds a handling
+ * fee, and the shopper must see that total update before they commit, not
+ * discover it afterwards.
+ *
+ * Deliberately stripped back: no category nav, no promos, no distractions.
+ * Every link that is not "complete this order" is a way to lose the sale.
+ */
 export default function CheckoutPage() {
     const [selectedAddress, setSelectedAddress] = useState<any | null>(null)
+    const [method, setMethod] = useState<PaymentMethod>("prepaid")
+
+    const steps = [
+        { n: 1, label: "Delivery address", done: !!selectedAddress },
+        { n: 2, label: "Payment", done: false },
+    ]
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <FadeIn>
-                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-8">Checkout</h1>
+        <div className="shell py-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+                    Checkout
+                </h1>
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                    <Lock className="size-3.5 text-trust" />
+                    Secure · 256-bit encrypted
+                </p>
+            </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                        {/* Left Column: Steps */}
-                        <div className="lg:col-span-7 space-y-8">
-                            {/* Step 1: Address Selection */}
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border shadow-sm">
-                                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-sm">1</span>
-                                    Shipping Address
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
+                <div className="space-y-5">
+                    {steps.map((step) => {
+                        const isAddress = step.n === 1
+                        const locked = !isAddress && !selectedAddress
+
+                        return (
+                            <section
+                                key={step.n}
+                                aria-labelledby={`step-${step.n}`}
+                                className={
+                                    locked
+                                        ? "rounded-xl border border-border bg-card opacity-60"
+                                        : "rounded-xl border border-border bg-card"
+                                }
+                            >
+                                <h2
+                                    id={`step-${step.n}`}
+                                    className="flex items-center gap-2.5 border-b border-border px-5 py-4"
+                                >
+                                    <span
+                                        className={
+                                            step.done
+                                                ? "grid size-7 shrink-0 place-items-center rounded-full bg-trust text-xs font-bold text-trust-foreground"
+                                                : "grid size-7 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-white"
+                                        }
+                                    >
+                                        {step.done ? "✓" : step.n}
+                                    </span>
+                                    <span className="font-display text-base font-extrabold">
+                                        {step.label}
+                                    </span>
                                 </h2>
-                                <AddressSelection onSelect={(addr) => setSelectedAddress(addr)} />
-                            </div>
 
-                            {/* Step 2: Payment */}
-                            <div className={`bg-white dark:bg-zinc-900 p-6 rounded-xl border shadow-sm transition-opacity ${!selectedAddress ? 'opacity-50 pointer-events-none' : ''}`}>
-                                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-sm">2</span>
-                                    Payment
-                                </h2>
-                                <PaymentForm address={selectedAddress} />
-                            </div>
-                        </div>
+                                <div className={locked ? "pointer-events-none p-5" : "p-5"}>
+                                    {isAddress ? (
+                                        <AddressSelection onSelect={(addr) => setSelectedAddress(addr)} />
+                                    ) : (
+                                        <PaymentForm
+                                            address={selectedAddress}
+                                            method={method}
+                                            onMethodChange={setMethod}
+                                        />
+                                    )}
+                                </div>
+                            </section>
+                        )
+                    })}
 
-                        {/* Right Column: Order Summary */}
-                        <div className="lg:col-span-5">
-                            <CheckoutSummary />
-                        </div>
-                    </div>
-                </FadeIn>
+                    <p className="text-center text-xs text-muted-foreground">
+                        By placing this order you agree to our{" "}
+                        <Link href="/products" className="font-semibold underline hover:text-accent">
+                            terms and return policy
+                        </Link>
+                        .
+                    </p>
+                </div>
+
+                <div>
+                    <CheckoutSummary method={method} />
+                </div>
             </div>
         </div>
     )

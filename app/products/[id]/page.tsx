@@ -1,258 +1,373 @@
-import { createClient } from "@/lib/supabase/server"
+import type { Metadata } from "next"
+import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ShoppingCart, Star, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Star, Truck } from "lucide-react"
+
+import { createClient } from "@/lib/supabase/server"
+import { Product } from "@/types/supabase"
+import { categoryByName } from "@/lib/categories"
+import { deliveryWindow, inr, savings, stockState } from "@/lib/commerce"
+import { Price } from "@/components/commerce/price"
+import { Rating } from "@/components/commerce/rating"
+import { TrustChips, TrustBar } from "@/components/commerce/trust"
 import { ProductCard } from "@/components/ProductCard"
-import { AddToCartButton } from "@/components/AddToCartButton"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { AddReviewForm } from "@/components/product/add-review-form"
+import { BuyBox } from "@/components/product/buy-box"
+import { StickyBuyBar } from "@/components/product/sticky-buy-bar"
+import { SectionHeader } from "@/components/storefront/section-header"
 
-export const revalidate = 60; // Revalidate every minute
+export const revalidate = 60
 
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+interface PageProps {
+    params: Promise<{ id: string }>
+}
+
+interface Review {
+    id: string | number
+    rating: number
+    comment?: string | null
+    content?: string | null
+    author?: string | null
+    created_at: string
+}
+
+async function getProduct(id: string) {
+    const supabase = await createClient()
+    const { data } = await supabase.from("products").select("*").eq("id", id).single()
+    return data as Product | null
+}
+
+/** Per-product titles and descriptions — these are what shows up in search. */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+    const { id } = await params
+    const product = await getProduct(id)
+    if (!product) return { title: "Product not found" }
+
+    const description =
+        product.description?.slice(0, 155) ||
+        `Buy ${product.title} on Apna Select with free delivery over ₹499 and cash on delivery.`
+
+    return {
+        title: product.title,
+        description,
+        openGraph: {
+            title: product.title,
+            description,
+            images: product.images?.[0] || product.image_url || undefined,
+        },
+    }
+}
+
+export default async function ProductPage({ params }: PageProps) {
     const { id } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
 
-    // 1. Fetch Product
-    const { data: product, error } = await supabase
+    const { data: productData, error } = await supabase
         .from("products")
         .select("*")
         .eq("id", id)
         .single()
 
-    if (error || !product) {
-        notFound()
-    }
+    if (error || !productData) notFound()
+    const product = productData as Product
 
-    // 2. Fetch Related Products
-    const { data: relatedProducts } = await supabase
+    const { data: relatedData } = await supabase
         .from("products")
         .select("*")
         .eq("category", product.category)
         .neq("id", product.id)
-        .limit(4)
+        .limit(5)
 
-    // 3. Fetch Reviews
-    let reviews = []
+    let reviews: Review[] = []
     try {
-        const { data: reviewsData } = await supabase
+        const { data } = await supabase
             .from("reviews")
             .select("*")
             .eq("product_id", id)
             .order("created_at", { ascending: false })
             .limit(10)
-
-        if (reviewsData) reviews = reviewsData
-    } catch (e) {
-        console.warn("Could not fetch reviews", e)
+        if (data) reviews = data as Review[]
+    } catch {
+        // Reviews are optional; never let a missing table 500 the product page.
     }
 
-    // Calculate Average Rating dynamically if needed, 
-    // but relying on product.average_rating if available or calculating from reviews for now if small set.
-    // For now, let's use the product's stored rating or fallback to reviews average.
-    const averageRating = product.average_rating || (reviews.length > 0
-        ? reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length
-        : 0)
+    const related = (relatedData || []) as Product[]
+    const images = product.images?.length
+        ? product.images
+        : product.image_url
+          ? [product.image_url]
+          : []
 
-    // JSONB Specs
+    const averageRating =
+        product.average_rating ||
+        (reviews.length
+            ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+            : 0)
+
+    const reviewCount = product.review_count ?? reviews.length
     const specs = product.specifications as Record<string, string> | null
+    const stock = stockState(product.inventory_count)
+    const saved = savings(product.price, product.compare_at_price)
+    const cat = categoryByName(product.category)
 
-    const images = product.images || (product.image_url ? [product.image_url] : [])
+    /**
+     * Product structured data. This is what earns the price, rating and
+     * availability chips in Google results — effectively free, higher-intent
+     * traffic, which is why it belongs on every product page.
+     */
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: product.title,
+        description: product.description ?? undefined,
+        image: images,
+        category: product.category,
+        offers: {
+            "@type": "Offer",
+            price: product.price,
+            priceCurrency: "INR",
+            availability: stock.inStock
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+        },
+        ...(averageRating > 0 && reviewCount > 0
+            ? {
+                  aggregateRating: {
+                      "@type": "AggregateRating",
+                      ratingValue: Number(averageRating.toFixed(1)),
+                      reviewCount,
+                  },
+              }
+            : {}),
+    }
 
     return (
-        <div className="min-h-screen bg-zinc-50 pb-32 md:pb-20 dark:bg-zinc-950/50 overflow-x-hidden w-full max-w-[100vw]">
-            <div className="container mx-auto px-4 py-8">
+        <>
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
 
-                {/* Top Section: Grid */}
-                <div className="grid gap-8 lg:grid-cols-2 lg:gap-16">
+            {/* Bottom padding clears the mobile sticky buy bar */}
+            <div className="shell pb-28 pt-6 md:pb-12">
+                <nav aria-label="Breadcrumb" className="mb-4 text-xs text-muted-foreground">
+                    <Link href="/" className="hover:text-accent hover:underline">
+                        Home
+                    </Link>
+                    <span className="mx-1.5">/</span>
+                    <Link
+                        href={`/category/${cat?.slug ?? encodeURIComponent(product.category ?? "")}`}
+                        className="hover:text-accent hover:underline"
+                    >
+                        {product.category}
+                    </Link>
+                    <span className="mx-1.5">/</span>
+                    <span className="line-clamp-1 font-semibold text-foreground">
+                        {product.title}
+                    </span>
+                </nav>
 
-                    {/* Left: Immersive Image Gallery */}
-                    <div className="md:sticky md:top-24 md:self-start min-w-0">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-12">
+                    <div className="min-w-0 lg:sticky lg:top-28 lg:self-start">
                         <ProductGallery images={images} title={product.title} />
                     </div>
 
-                    {/* Right: Product Info */}
-                    <div className="flex flex-col pt-2">
-                        <div className="mb-6">
-                            <span className="mb-3 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                                {product.category}
-                            </span>
-                            <h1 className="text-4xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-500 dark:from-white dark:to-zinc-500">
-                                {product.title}
-                            </h1>
+                    {/* Buy box column — everything needed to decide, nothing else */}
+                    <div className="min-w-0">
+                        <h1 className="font-display text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
+                            {product.title}
+                        </h1>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <Rating value={averageRating || null} count={reviewCount} />
+                            {reviewCount > 0 && (
+                                <a
+                                    href="#reviews"
+                                    className="text-xs font-semibold text-accent hover:underline"
+                                >
+                                    Read reviews
+                                </a>
+                            )}
                         </div>
 
-                        {/* Rating */}
-                        <div className="mb-8 flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                                <span className="font-bold text-lg text-zinc-900 dark:text-zinc-50 mr-2">{averageRating.toFixed(1)}</span>
-                                {[...Array(5)].map((_, i) => (
-                                    <Star
-                                        key={i}
-                                        className={`h-5 w-5 ${i < Math.round(averageRating) ? "fill-amber-400 text-amber-400" : "fill-zinc-200 text-zinc-200 dark:fill-zinc-800 dark:text-zinc-800"}`}
-                                    />
-                                ))}
-                            </div>
-                            <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 underline decoration-zinc-300 underline-offset-4 cursor-pointer hover:text-blue-500 transition-colors">
-                                {reviews.length} reviews
-                            </span>
-                        </div>
-
-                        {/* Price */}
-                        <div className="mb-10 flex items-center gap-4">
-                            <p className="text-5xl font-bold text-zinc-900 dark:text-white">
-                                {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.price)}
-                            </p>
-                            {product.compare_at_price && (
-                                <p className="text-2xl font-medium text-zinc-400 line-through decoration-2">
-                                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.compare_at_price)}
+                        <div className="mt-5 border-y border-border py-5">
+                            <Price
+                                price={product.price}
+                                compareAt={product.compare_at_price}
+                                size="lg"
+                            />
+                            {saved !== null && (
+                                <p className="mt-1.5 text-sm font-bold text-trust">
+                                    You save {inr(saved)}
                                 </p>
                             )}
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Inclusive of all taxes
+                            </p>
+
+                            <p
+                                className={
+                                    stock.tone === "urgent"
+                                        ? "mt-3 text-sm font-bold text-urgent"
+                                        : stock.tone === "trust"
+                                          ? "mt-3 text-sm font-semibold text-trust"
+                                          : "mt-3 text-sm font-semibold text-muted-foreground"
+                                }
+                            >
+                                {stock.label}
+                            </p>
                         </div>
 
-                        {/* Stock Status Indicator */}
-                        <div className="mb-6">
-                            {(!product.inventory_count || product.inventory_count <= 0) ? (
-                                <div className="flex items-center gap-2">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 dark:bg-red-500"></span>
-                                    </span>
-                                    <span className="text-sm font-bold text-red-600 dark:text-red-500">Out of Stock</span>
-                                </div>
-                            ) : product.inventory_count <= 5 ? (
-                                <div className="flex items-center gap-2">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
-                                    </span>
-                                    <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                                        Only {product.inventory_count} left in stock - order soon!
-                                    </span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                    </span>
-                                    <span className="text-sm font-medium text-green-600 dark:text-green-400">In Stock</span>
-                                </div>
-                            )}
+                        {/* Delivery promise: a concrete date beats "3-5 business days",
+                            because the shopper does not have to work it out. */}
+                        <div className="mt-5 flex items-start gap-2.5 rounded-xl bg-trust-subtle p-3.5">
+                            <Truck className="mt-0.5 size-4 shrink-0 text-trust" />
+                            <div className="text-sm">
+                                <p className="font-bold text-foreground">
+                                    Delivery by {deliveryWindow()}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Free delivery on orders over ₹499 · Cash on delivery available
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Description */}
-                        <div className="prose prose-zinc dark:prose-invert mb-10 max-w-none leading-relaxed text-zinc-600 dark:text-zinc-300">
-                            <p>{product.description}</p>
+                        <div className="mt-5">
+                            <BuyBox product={product} max={product.inventory_count} />
                         </div>
 
-                        {/* Tech Specs - Glassmorphism */}
-                        {specs && (
-                            <div className="hidden md:block mb-10 rounded-2xl border border-zinc-200 bg-white/50 p-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-                                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Tech Specs</h3>
-                                <div className="grid gap-y-4 gap-x-8 sm:grid-cols-2">
-                                    {Object.entries(specs).map(([key, value]) => (
-                                        <div key={key} className="flex justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800 md:block md:border-0 md:pb-0">
-                                            <dt className="text-sm font-medium text-zinc-500 dark:text-zinc-400 capitalize">{key.replace(/_/g, ' ')}</dt>
-                                            <dd className="text-base font-semibold text-zinc-900 dark:text-zinc-50">{value}</dd>
-                                        </div>
-                                    ))}
-                                </div>
+                        <TrustChips className="mt-5 border-t border-border pt-5" />
+
+                        {product.description && (
+                            <div className="mt-6">
+                                <h2 className="mb-2 font-display text-base font-extrabold">
+                                    About this product
+                                </h2>
+                                <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                                    {product.description}
+                                </p>
                             </div>
                         )}
 
-                        {/* Add to Cart (Desktop) */}
-                        <div className="hidden md:block mt-auto">
-                            <div className="flex gap-4">
-                                <AddToCartButton product={product} />
+                        {specs && Object.keys(specs).length > 0 && (
+                            <div className="mt-6">
+                                <h2 className="mb-3 font-display text-base font-extrabold">
+                                    Specifications
+                                </h2>
+                                <dl className="overflow-hidden rounded-xl border border-border">
+                                    {Object.entries(specs).map(([key, value], i) => (
+                                        <div
+                                            key={key}
+                                            className={`grid grid-cols-[40%_60%] gap-2 px-4 py-2.5 text-sm ${
+                                                i % 2 ? "bg-surface-sunken" : "bg-card"
+                                            }`}
+                                        >
+                                            <dt className="capitalize text-muted-foreground">
+                                                {key.replace(/_/g, " ")}
+                                            </dt>
+                                            <dd className="font-semibold">{value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
+            </div>
 
-                {/* Advanced Specs Section (if needed, kept simple for now as requested) */}
+            <TrustBar />
 
-                {/* Reviews Section */}
-                <div className="mt-24 max-w-5xl mx-auto">
-                    <div className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
-                        <div className="space-y-2">
-                            <h2 className="text-3xl font-bold text-zinc-900 dark:text-white">Customer Reviews</h2>
-                            <p className="text-zinc-500 dark:text-zinc-400">See what others are saying about the {product.title}</p>
-                        </div>
-                        <div className="flex items-center gap-4 rounded-full border border-zinc-200 bg-white px-6 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                            <div className="flex items-center gap-1">
-                                <span className="text-2xl font-bold">{averageRating.toFixed(1)}</span>
-                                <Star className="h-6 w-6 fill-amber-400 text-amber-400" />
-                            </div>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400 border-l border-zinc-200 dark:border-zinc-700 pl-4">{reviews.length} Ratings</span>
-                        </div>
+            {/* Reviews */}
+            <section id="reviews" className="shell scroll-mt-24 py-12">
+                <SectionHeader
+                    eyebrow="Social proof"
+                    title="Customer reviews"
+                    subtitle={
+                        reviewCount > 0
+                            ? `${averageRating.toFixed(1)} out of 5 from ${reviewCount} ${reviewCount === 1 ? "review" : "reviews"}`
+                            : "Be the first to review this product."
+                    }
+                />
+
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+                    <div className="lg:sticky lg:top-28 lg:self-start">
+                        <AddReviewForm productId={product.id} userId={user?.id} />
                     </div>
 
-                    <div className="grid gap-12 lg:grid-cols-12">
-                        {/* Review Form */}
-                        <div className="lg:col-span-5">
-                            <AddReviewForm productId={product.id} userId={user?.id} />
-                        </div>
-
-                        {/* Reviews List */}
-                        <div className="lg:col-span-7 space-y-6">
-                            {reviews.length > 0 ? (
-                                reviews.map((review: any) => (
-                                    <div key={review.id} className="group rounded-2xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700">
-                                        <div className="mb-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex">
-                                                    {[...Array(5)].map((_, i) => (
-                                                        <Star
-                                                            key={i}
-                                                            className={`h-4 w-4 ${i < review.rating ? "fill-amber-400 text-amber-400" : "fill-zinc-200 text-zinc-200 dark:fill-zinc-800 dark:text-zinc-800"}`}
-                                                        />
-                                                    ))}
-                                                </div>
-                                                <span className="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 text-xs px-2 py-0.5 rounded-full font-medium">Verified Purchase</span>
+                    <div className="space-y-3">
+                        {reviews.length > 0 ? (
+                            reviews.map((review) => (
+                                <article
+                                    key={review.id}
+                                    className="rounded-xl border border-border bg-card p-4"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex" aria-hidden>
+                                                {Array.from({ length: 5 }).map((_, i) => (
+                                                    <Star
+                                                        key={i}
+                                                        className={
+                                                            i < review.rating
+                                                                ? "size-3.5 fill-star text-star"
+                                                                : "size-3.5 fill-border text-border"
+                                                        }
+                                                    />
+                                                ))}
                                             </div>
-                                            <span className="text-xs text-zinc-400">
-                                                {new Date(review.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                                            <span className="rounded bg-trust-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-trust">
+                                                Verified purchase
                                             </span>
                                         </div>
-                                        <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">"{review.comment || review.content}"</p>
+                                        <time
+                                            dateTime={review.created_at}
+                                            className="shrink-0 text-xs text-muted-foreground"
+                                        >
+                                            {new Date(review.created_at).toLocaleDateString("en-IN", {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                            })}
+                                        </time>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="rounded-2xl border border-dashed border-zinc-200 p-12 text-center dark:border-zinc-800">
-                                    <p className="text-zinc-500">No reviews yet. Be the first to share your thoughts!</p>
-                                </div>
-                            )}
-                        </div>
+                                    <p className="mt-2.5 text-sm leading-relaxed text-card-foreground">
+                                        {review.comment || review.content}
+                                    </p>
+                                </article>
+                            ))
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-border p-10 text-center">
+                                <p className="text-sm text-muted-foreground">
+                                    No reviews yet. Bought this? Share your experience and help
+                                    the next shopper decide.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
+            </section>
 
-                {/* Footer: Related Products */}
-                {relatedProducts && relatedProducts.length > 0 && (
-                    <div className="mt-24 border-t border-zinc-200 pt-24 dark:border-zinc-800">
-                        <h2 className="mb-10 text-2xl font-bold">You Might Also Like</h2>
-                        <div className="grid grid-cols-2 gap-6 md:grid-cols-4 lg:gap-8">
-                            {relatedProducts.map((p) => (
-                                <ProductCard key={p.id} product={p} />
-                            ))}
-                        </div>
+            {related.length > 0 && (
+                <section className="shell border-t border-border py-12">
+                    <SectionHeader
+                        eyebrow="Keep looking"
+                        title="You might also like"
+                        href={`/category/${cat?.slug ?? ""}`}
+                        hrefLabel={`More ${product.category}`}
+                    />
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                        {related.map((p) => (
+                            <ProductCard key={p.id} product={p} />
+                        ))}
                     </div>
-                )}
-            </div>
+                </section>
+            )}
 
-            {/* Mobile Sticky Bottom Bar - "Creative Extra" */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/80 p-4 pb-safe backdrop-blur-lg md:hidden dark:border-zinc-800 dark:bg-zinc-950/80">
-                <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                        <p className="text-xs text-zinc-500 uppercase tracking-wide">Total</p>
-                        <p className="text-lg font-bold text-zinc-900 dark:text-white">
-                            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.price)}
-                        </p>
-                    </div>
-                    <div className="flex-1">
-                        <AddToCartButton product={product} className="w-full shadow-lg" />
-                    </div>
-                </div>
-            </div>
-        </div>
+            <StickyBuyBar product={product} />
+        </>
     )
 }

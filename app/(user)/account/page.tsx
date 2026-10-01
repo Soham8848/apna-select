@@ -1,3 +1,4 @@
+import { inr } from "@/lib/commerce"
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
@@ -137,7 +138,7 @@ export default async function AccountPage() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
-                                    <span className="text-xl font-bold">${recentOrder.total_amount?.toFixed(2)}</span>
+                                    <span data-price className="text-xl font-bold">{inr(recentOrder.total_amount)}</span>
                                     <Button asChild size="sm">
                                         <Link href={`/account/orders/${recentOrder.id}`}>
                                             View Details
