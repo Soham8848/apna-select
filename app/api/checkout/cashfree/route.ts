@@ -1,125 +1,137 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { priceOrder } from "@/lib/server/pricing";
 
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { priceOrder } from "@/lib/server/pricing";
+import {
+    cashfreeConfig,
+    cashfreeHeaders,
+    validateAddress,
+    validateContact,
+} from "@/lib/server/checkout";
+
+/**
+ * Starts an online payment.
+ *
+ * Order of operations matters: we save our own order first (with an id we
+ * generate), and only then ask Cashfree to collect money for it. Previously
+ * the Cashfree order was created first and a failed database insert was only
+ * logged — so a shopper could pay for an order that did not exist.
+ */
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { items, addressSnapshot, name, email, phone } = body;
+        const { items, addressSnapshot, name, email, phone } = await req.json();
 
-        // Price the order from the database before anything else. The request
-        // body is untrusted input: it supplies product ids and quantities only,
-        // never amounts.
         const supabase = await createClient();
-        const priced = await priceOrder(supabase, items, "prepaid");
+        const db = createAdminClient() ?? supabase;
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+
+        const addressError = validateAddress(addressSnapshot);
+        if (addressError) return NextResponse.json({ error: addressError }, { status: 400 });
+
+        const checked = validateContact({ name, phone, email, fallbackEmail: user?.email });
+        if ("error" in checked) return NextResponse.json({ error: checked.error }, { status: 400 });
+        const { contact } = checked;
+
+        // Prices come from the database; the request supplies ids and quantities only.
+        const priced = await priceOrder(db, items, "prepaid");
         if ("error" in priced) {
             return NextResponse.json({ error: priced.error }, { status: 400 });
         }
         const { order: pricedOrder } = priced;
 
-        // Safely get the origin (falls back to the known production domain if headers fail)
-        const origin = req.headers.get('origin') || 'https://apna-select.vercel.app';
-
-        // Cashfree requires '{order_id}' exactly as written, they will replace it dynamically
-        const secureReturnUrl = `${origin}/checkout/success?order_id={order_id}`;
-
-        // 1. Clean the keys
-        const rawEnv = process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT?.trim().toUpperCase();
-        const appId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.trim();
-        const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
-        // 2. Determine exact URL
-        const isProd = rawEnv === 'PRODUCTION';
-        const cashfreeUrl = isProd
-            ? 'https://api.cashfree.com/pg/orders'
-            : 'https://sandbox.cashfree.com/pg/orders';
-        // 3. Log safely (DO NOT log the secret key)
-        console.log("--- CASHFREE DEBUG ---");
-        console.log(`Environment Variable: ${rawEnv}`);
-        console.log(`Target URL: ${cashfreeUrl}`);
-        console.log(`App ID Length: ${appId?.length}`);
+        const { appId, secretKey, baseUrl } = cashfreeConfig();
         if (!appId || !secretKey) {
-            return NextResponse.json({ error: "Missing Cashfree API Keys" }, { status: 500 });
+            console.error("Cashfree keys are not configured");
+            return NextResponse.json({ error: "Online payment is unavailable right now." }, { status: 500 });
         }
 
-        // 4. Set strict headers
-        const headers = {
-            'x-api-version': '2023-08-01',
-            'x-client-id': appId,
-            'x-client-secret': secretKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        };
-        // 5. Payload structure (Ensure this matches your actual logic)
-        const orderPayload = {
-            order_amount: pricedOrder.total,
-            order_currency: "INR",
-            customer_details: {
-                customer_id: "CUST_" + Date.now(),
-                customer_phone: phone || "9999999999",
-                customer_name: name || "Customer",
-                customer_email: email || "test@example.com"
-            },
-            order_meta: {
-                // This is handled by the frontend SDK, but we pass a dummy URL to satisfy the API
-                return_url: secureReturnUrl
-            }
-        };
-        const response = await fetch(cashfreeUrl, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(orderPayload)
-        });
-        const data = await response.json();
-        console.log("Cashfree Response Status:", response.status);
-        if (!response.ok) {
-            console.error("Cashfree Error:", data);
-            return NextResponse.json({ error: data.message || "Payment init failed" }, { status: response.status });
-        }
+        // 1. Save the order under our own id.
+        const cfOrderId = `AS_${Date.now()}_${randomBytes(4).toString("hex")}`;
 
-        // Insert Order into Supabase
-        const { data: { user } } = await supabase.auth.getUser();
-
-        const userId = user ? user.id : null;
-        const totalAmount = pricedOrder.total;
-
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
+        const { data: order, error: orderError } = await db
+            .from("orders")
             .insert({
-                user_id: userId,
-                status: 'pending',
-                total_amount: totalAmount,
-                payment_intent_id: data.order_id, // Cashfree generates order_id
+                user_id: user?.id ?? null,
+                status: "pending",
+                total_amount: pricedOrder.total,
+                payment_intent_id: cfOrderId,
                 order_address_snapshot: addressSnapshot,
-                customer_name: name,
-                customer_email: email,
-                customer_phone: phone,
-                payment_method: 'cashfree',
-                is_paid: false
+                customer_name: contact.name,
+                customer_email: contact.email,
+                customer_phone: contact.phone,
+                payment_method: "cashfree",
+                is_paid: false,
             })
-            .select()
+            .select("id")
             .single();
 
-        if (orderError) {
-            console.error("Order Insert Error:", orderError);
-        } else if (order) {
-            // Create order items
-            // Record the database price, not the submitted one, so the order
-            // history can never disagree with what was charged.
-            const orderItemsData = pricedOrder.lines.map((line) => ({
+        if (orderError || !order) {
+            console.error("Order insert error:", orderError?.message);
+            return NextResponse.json({ error: "Could not create your order. Please try again." }, { status: 500 });
+        }
+
+        const { error: itemsError } = await db.from("order_items").insert(
+            pricedOrder.lines.map((line) => ({
                 order_id: order.id,
                 product_id: line.product_id,
                 quantity: line.quantity,
-                price_at_purchase: line.unit_price
-            }));
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
-            if (itemsError) {
-                console.error("Order Items Insert Error:", itemsError);
-            }
+                price_at_purchase: line.unit_price,
+            }))
+        );
+
+        if (itemsError) {
+            console.error("Order items insert error:", itemsError.message);
+            await db.from("orders").delete().eq("id", order.id);
+            return NextResponse.json({ error: "Could not create your order. Please try again." }, { status: 500 });
         }
 
-        return NextResponse.json(data);
-    } catch (error: any) {
-        console.error("Server Error:", error);
+        // 2. Ask Cashfree to collect payment for exactly that order.
+        // The site URL comes from config, never from the request's Origin header.
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin).replace(/\/$/, "");
+
+        const response = await fetch(`${baseUrl}/orders`, {
+            method: "POST",
+            headers: cashfreeHeaders(),
+            body: JSON.stringify({
+                order_id: cfOrderId,
+                order_amount: pricedOrder.total,
+                order_currency: "INR",
+                customer_details: {
+                    customer_id: user?.id ?? `guest_${contact.phone}`,
+                    customer_phone: contact.phone,
+                    customer_name: contact.name,
+                    ...(contact.email ? { customer_email: contact.email } : {}),
+                },
+                order_meta: {
+                    return_url: `${siteUrl}/api/checkout/verify?order_id={order_id}`,
+                    // Cashfree only accepts https webhook URLs, so skip it on localhost.
+                    ...(siteUrl.startsWith("https://")
+                        ? { notify_url: `${siteUrl}/api/webhooks/cashfree` }
+                        : {}),
+                },
+            }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error("Cashfree order create failed:", response.status, data?.message);
+            await db.from("orders").update({ status: "failed" }).eq("id", order.id);
+            return NextResponse.json(
+                { error: data?.message || "Could not start the payment. Please try again." },
+                { status: 502 }
+            );
+        }
+
+        return NextResponse.json({
+            order_id: data.order_id,
+            payment_session_id: data.payment_session_id,
+        });
+    } catch (error) {
+        console.error("Cashfree checkout error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

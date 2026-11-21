@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { UserNav } from '@/components/UserNav'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { CartButton } from '@/components/layout/cart-button'
@@ -16,22 +15,11 @@ const PRIMARY_LINKS = [
     { href: '/category/accessories', label: 'Style Ka Tadka' },
 ]
 
-export default async function Navbar() {
-    const supabase = await createClient()
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    let isAdmin = false
-    if (user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single()
-        isAdmin = profile?.is_admin || false
-    }
-
+/**
+ * Rendered identically for every visitor so pages stay cacheable; the signed-in
+ * state is filled in client-side by <UserNav /> (see store/use-session.ts).
+ */
+export default function Navbar() {
     return (
         <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="shell flex h-16 items-center gap-3">
@@ -47,7 +35,7 @@ export default async function Navbar() {
 
                 <div className="ml-auto flex items-center gap-1 md:ml-0">
                     <CartButton />
-                    <UserNav user={user} isAdmin={isAdmin} />
+                    <UserNav />
                     <ThemeToggle />
                 </div>
             </div>

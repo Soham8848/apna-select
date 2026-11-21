@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public";
 import { Product } from "@/types/supabase";
 import { PRICE_TIERS, tierBySlug } from "@/lib/price-tiers";
 import { inr } from "@/lib/commerce";
@@ -36,13 +36,13 @@ export default async function DealsTierPage({ params }: PageProps) {
     const tier = tierBySlug(slug);
     if (!tier) notFound();
 
-    const supabase = await createClient();
-    let query = supabase.from("products").select("*").gte("price", tier.min);
+    const supabase = createPublicClient();
+    let query = supabase.from("products").select(CARD_COLUMNS).gte("price", tier.min);
     // Skip the upper bound on the open-ended premium tier.
     if (tier.max !== Number.MAX_SAFE_INTEGER) query = query.lte("price", tier.max);
 
     const { data } = await query.order("price", { ascending: true });
-    const products = (data || []) as Product[];
+    const products = (data || []) as unknown as Product[];
 
     const cheapest = products[0]?.price;
 

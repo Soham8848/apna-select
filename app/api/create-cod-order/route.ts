@@ -1,84 +1,76 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { priceOrder } from "@/lib/server/pricing";
+import { validateAddress, validateContact } from "@/lib/server/checkout";
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { items, addressSnapshot, name, email, phone } = body;
+        const { items, addressSnapshot, name, email, phone } = await req.json();
 
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const db = createAdminClient() ?? supabase;
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-        const userId = user ? user.id : null;
+        const addressError = validateAddress(addressSnapshot);
+        if (addressError) return NextResponse.json({ error: addressError }, { status: 400 });
 
-        /**
-         * Price from the database, including delivery and the COD fee, so the
-         * amount stored on the order matches the total the shopper confirmed.
-         *
-         * This replaces a per-item loop that issued one query per cart line and
-         * silently dropped any product it could not find — meaning a stale cart
-         * could place an order for less than the shopper actually selected.
-         * `priceOrder` fetches every product in one query and fails loudly
-         * instead.
-         */
-        const priced = await priceOrder(supabase, items, "cod");
+        // A COD order with no reachable phone number cannot be delivered.
+        const checked = validateContact({ name, phone, email, fallbackEmail: user?.email });
+        if ("error" in checked) return NextResponse.json({ error: checked.error }, { status: 400 });
+        const { contact } = checked;
+
+        // Price from the database, including delivery and the COD fee.
+        const priced = await priceOrder(db, items, "cod");
         if ("error" in priced) {
             return NextResponse.json({ error: priced.error }, { status: 400 });
         }
-        const total = priced.order.total;
-        const verifiedItems = priced.order.lines.map((line) => ({
-            product_id: line.product_id,
-            quantity: line.quantity,
-            price: line.unit_price,
-        }));
 
-        // Insert Order
-        // Note: Using 'cod' as payment_method and is_paid: false
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
+        const { data: order, error: orderError } = await db
+            .from("orders")
             .insert({
-                user_id: userId,
-                status: 'pending',
-                total_amount: total,
-                payment_intent_id: `COD-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                user_id: user?.id ?? null,
+                status: "pending",
+                total_amount: priced.order.total,
+                payment_intent_id: `COD_${Date.now()}_${randomBytes(4).toString("hex")}`,
                 order_address_snapshot: addressSnapshot,
-                customer_name: name,
-                customer_email: email,
-                customer_phone: phone,
-                payment_method: 'cod',
-                is_paid: false
+                customer_name: contact.name,
+                customer_email: contact.email,
+                customer_phone: contact.phone,
+                payment_method: "cod",
+                is_paid: false,
             })
-            .select()
+            .select("id")
             .single();
 
-        if (orderError) {
-            console.error("Error creating COD order:", orderError);
+        if (orderError || !order) {
+            console.error("Error creating COD order:", orderError?.message);
             return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
         }
 
-        // Insert Order Items
-        const orderItemsData = verifiedItems.map(item => ({
-            order_id: order.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            price_at_purchase: item.price
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItemsData);
+        const { error: itemsError } = await db.from("order_items").insert(
+            priced.order.lines.map((line) => ({
+                order_id: order.id,
+                product_id: line.product_id,
+                quantity: line.quantity,
+                price_at_purchase: line.unit_price,
+            }))
+        );
 
         if (itemsError) {
-            console.error("Error creating COD order items:", itemsError);
-            // Ideally we should rollback order here, but for now just error
+            console.error("Error creating COD order items:", itemsError.message);
+            // Roll back so an order with no items never reaches the admin queue.
+            await db.from("orders").delete().eq("id", order.id);
             return NextResponse.json({ error: "Failed to create order items" }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, orderId: order.id });
-
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error processing COD order:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

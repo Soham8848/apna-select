@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
 
 import { toggleFavorite } from "@/app/actions/favorite-actions";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/store/use-session";
 
 interface WishlistButtonProps {
     productId: string | number;
@@ -30,7 +31,13 @@ export function WishlistButton({
     variant = "overlay",
     className,
 }: WishlistButtonProps) {
-    const [favorited, setFavorited] = useState(initialFavorited);
+    const id = String(productId);
+    // The session store holds the shopper's saved ids (loaded client-side so
+    // product pages stay cacheable); fall back to the prop until it loads.
+    const loaded = useSession((s) => s.loaded);
+    const inStore = useSession((s) => s.favoriteIds.has(id));
+    const setFavorite = useSession((s) => s.setFavorite);
+    const favorited = loaded ? inStore : initialFavorited;
     const [pending, startTransition] = useTransition();
     const router = useRouter();
 
@@ -39,12 +46,12 @@ export function WishlistButton({
         e.stopPropagation();
 
         const next = !favorited;
-        setFavorited(next);
+        setFavorite(id, next);
 
         startTransition(async () => {
             const res = await toggleFavorite(productId);
             if (!res.ok) {
-                setFavorited(!next);
+                setFavorite(id, !next);
                 toast.error(res.error ?? "Could not update your wishlist.", {
                     action: res.error?.includes("sign in")
                         ? { label: "Sign in", onClick: () => router.push("/login") }

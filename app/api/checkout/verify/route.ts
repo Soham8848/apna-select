@@ -1,41 +1,39 @@
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchCashfreeOrder, markOrderPaid } from "@/lib/server/checkout";
 
+/**
+ * Where Cashfree sends the shopper's browser after payment. The status is
+ * always re-read from Cashfree's API — the query string is never trusted.
+ *
+ * This is the fast path only. If the shopper closes the tab before arriving
+ * here, /api/webhooks/cashfree marks the order paid instead.
+ */
 export async function GET(req: Request) {
+    const url = new URL(req.url);
+    const orderId = url.searchParams.get("order_id");
+
+    if (!orderId) {
+        return NextResponse.redirect(new URL("/checkout?error=MissingOrderId", req.url));
+    }
+
     try {
-        const url = new URL(req.url);
-        const order_id = url.searchParams.get('order_id');
-
-        if (!order_id) {
-            return NextResponse.redirect(new URL('/checkout?error=MissingOrderId', req.url));
+        const cfOrder = await fetchCashfreeOrder(orderId);
+        if (!cfOrder) {
+            return NextResponse.redirect(new URL("/checkout?error=PaymentFailed", req.url));
         }
 
-        const env = process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
-        const baseUrl = env === 'PRODUCTION' ? `https://api.cashfree.com/pg/orders/${order_id}` : `https://sandbox.cashfree.com/pg/orders/${order_id}`;
+        const db = createAdminClient() ?? (await createClient());
+        const result = await markOrderPaid(db, cfOrder);
 
-        const cfRes = await fetch(baseUrl, {
-            method: 'GET',
-            headers: {
-                'x-api-version': '2023-08-01',
-                'x-client-id': process.env.NEXT_PUBLIC_CASHFREE_APP_ID || process.env.CASHFREE_APP_ID || '',
-                'x-client-secret': process.env.CASHFREE_SECRET_KEY || ''
-            }
-        });
-
-        const cfData = await cfRes.json();
-
-        if (cfData.order_status === 'PAID') {
-            const supabase = await createClient();
-            await supabase.from('orders').update({
-                status: 'paid',
-                is_paid: true
-            }).eq('payment_intent_id', order_id);
-
-            return NextResponse.redirect(new URL('/checkout/success', req.url));
-        } else {
-            return NextResponse.redirect(new URL('/checkout?error=PaymentFailed', req.url));
+        if (result === "paid" || result === "already_paid") {
+            return NextResponse.redirect(new URL("/checkout/success", req.url));
         }
-    } catch (e: any) {
-        return NextResponse.redirect(new URL('/checkout?error=Server_Error', req.url));
+        return NextResponse.redirect(new URL("/checkout?error=PaymentFailed", req.url));
+    } catch (e) {
+        console.error("Payment verify error:", e);
+        return NextResponse.redirect(new URL("/checkout?error=Server_Error", req.url));
     }
 }

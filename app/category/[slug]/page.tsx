@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public";
 import { Product } from "@/types/supabase";
-import { categoryBySlug } from "@/lib/categories";
+import { CATEGORIES, categoryBySlug } from "@/lib/categories";
 import { ProductBrowser } from "@/components/storefront/product-browser";
 import { CategoryRail } from "@/components/storefront/category-rail";
 import { TrustBar } from "@/components/commerce/trust";
 
 export const revalidate = 60;
+
+/** Prerender every known category at build time; all are then served from cache. */
+export function generateStaticParams() {
+    return CATEGORIES.map((c) => ({ slug: c.slug }));
+}
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -46,16 +51,16 @@ export default async function CategoryPage({ params }: PageProps) {
     const { slug } = await params;
     const { dbName, display, english } = await resolve(slug);
 
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(CARD_COLUMNS)
         .ilike("category", dbName)
         .order("created_at", { ascending: false });
 
     if (error) console.error("Error fetching category products:", error.message);
 
-    const products = (data || []) as Product[];
+    const products = (data || []) as unknown as Product[];
 
     return (
         <>

@@ -6,13 +6,17 @@ import { Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { useSession } from "@/store/use-session"
 
 interface AddReviewFormProps {
     productId: string
     userId?: string
 }
 
-export function AddReviewForm({ productId, userId }: AddReviewFormProps) {
+export function AddReviewForm({ productId, userId: userIdProp }: AddReviewFormProps) {
+    // Signed-in user comes from the client session so the product page itself can be cached.
+    const sessionUserId = useSession((s) => s.user?.id)
+    const userId = userIdProp ?? sessionUserId
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState("")

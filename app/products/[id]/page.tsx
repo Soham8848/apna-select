@@ -3,7 +3,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Star, Truck } from "lucide-react"
 
-import { createClient } from "@/lib/supabase/server"
+import { cache } from "react"
+
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public"
 import { Product } from "@/types/supabase"
 import { categoryByName } from "@/lib/categories"
 import { deliveryWindow, inr, savings, stockState } from "@/lib/commerce"
@@ -19,6 +21,15 @@ import { SectionHeader } from "@/components/storefront/section-header"
 
 export const revalidate = 60
 
+/**
+ * Empty list = nothing prerendered at build, but each product page is cached
+ * after its first visit and refreshed every 60s (on-demand ISR), instead of
+ * being rendered from scratch for every shopper.
+ */
+export function generateStaticParams() {
+    return []
+}
+
 interface PageProps {
     params: Promise<{ id: string }>
 }
@@ -32,11 +43,15 @@ interface Review {
     created_at: string
 }
 
-async function getProduct(id: string) {
-    const supabase = await createClient()
-    const { data } = await supabase.from("products").select("*").eq("id", id).single()
+/**
+ * Wrapped in React `cache()` so generateMetadata and the page share one query
+ * per request instead of fetching the same product twice. Uses the
+ * cookie-free client so the page can be served from the ISR cache.
+ */
+const getProduct = cache(async (id: string) => {
+    const { data } = await createPublicClient().from("products").select("*").eq("id", id).maybeSingle()
     return data as Product | null
-}
+})
 
 /** Per-product titles and descriptions — these are what shows up in search. */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -61,41 +76,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
     const { id } = await params
-    const supabase = await createClient()
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
+    const product = await getProduct(id)
+    if (!product) notFound()
 
-    const { data: productData, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", id)
-        .single()
+    const supabase = createPublicClient()
 
-    if (error || !productData) notFound()
-    const product = productData as Product
-
-    const { data: relatedData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("category", product.category)
-        .neq("id", product.id)
-        .limit(5)
-
-    let reviews: Review[] = []
-    try {
-        const { data } = await supabase
+    // Related products and reviews are independent, so fetch them in parallel.
+    const [{ data: relatedData }, reviewsResult] = await Promise.all([
+        supabase
+            .from("products")
+            .select(CARD_COLUMNS)
+            .eq("category", product.category)
+            .neq("id", product.id)
+            .limit(5),
+        supabase
             .from("reviews")
             .select("*")
             .eq("product_id", id)
             .order("created_at", { ascending: false })
-            .limit(10)
-        if (data) reviews = data as Review[]
-    } catch {
-        // Reviews are optional; never let a missing table 500 the product page.
-    }
+            .limit(10),
+    ])
 
-    const related = (relatedData || []) as Product[]
+    // Reviews are optional; a missing table just means no reviews section.
+    const reviews = (reviewsResult.error ? [] : reviewsResult.data ?? []) as Review[]
+
+    const related = (relatedData || []) as unknown as Product[]
     const images = product.images?.length
         ? product.images
         : product.image_url
@@ -295,7 +300,7 @@ export default async function ProductPage({ params }: PageProps) {
 
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
                     <div className="lg:sticky lg:top-28 lg:self-start">
-                        <AddReviewForm productId={product.id} userId={user?.id} />
+                        <AddReviewForm productId={product.id} />
                     </div>
 
                     <div className="space-y-3">

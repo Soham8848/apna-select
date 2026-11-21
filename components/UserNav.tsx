@@ -15,25 +15,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Heart, Settings, LogOut, PackageOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { type User as SupabaseUser } from '@supabase/supabase-js'
+import { useSession } from '@/store/use-session'
 
-interface UserNavProps {
-    user: SupabaseUser | null
-    isAdmin: boolean
-}
-
-export function UserNav({ user, isAdmin }: UserNavProps) {
+export function UserNav() {
     const router = useRouter()
-    const supabase = createClient()
+    const { user, isAdmin, loaded } = useSession()
 
     const handleLogout = async () => {
         try {
-            await supabase.auth.signOut()
+            await createClient().auth.signOut()
             router.refresh()
             toast.success('Logged out successfully')
-        } catch (error) {
+        } catch {
             toast.error('Error logging out')
         }
+    }
+
+    // Same footprint as the avatar so the header does not shift while loading.
+    if (!loaded) {
+        return <div className="h-10 w-10 animate-pulse rounded-full bg-muted" aria-hidden />
     }
 
     if (!user) {

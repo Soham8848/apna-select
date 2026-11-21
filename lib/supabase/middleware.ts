@@ -1,10 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Refreshes the Supabase auth cookie so server components and route handlers
+ * see a valid session. Route protection itself lives in each page/route
+ * (e.g. the admin layout and requireAdmin()), not here.
+ */
 export async function updateSession(request: NextRequest) {
-    let supabaseResponse = NextResponse.next({
-        request,
-    })
+    let supabaseResponse = NextResponse.next({ request })
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,12 +18,8 @@ export async function updateSession(request: NextRequest) {
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        request.cookies.set(name, value)
-                    )
-                    supabaseResponse = NextResponse.next({
-                        request,
-                    })
+                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+                    supabaseResponse = NextResponse.next({ request })
                     cookiesToSet.forEach(({ name, value, options }) =>
                         supabaseResponse.cookies.set(name, value, options)
                     )
@@ -29,30 +28,9 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // IMPORTANT: Avoid writing any logic between createServerClient and
-    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-    // issues with users being randomly logged out.
-
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth') &&
-        !request.nextUrl.pathname.startsWith('/signup') &&
-        !request.nextUrl.pathname.startsWith('/')
-        // Add other public routes here 
-    ) {
-        // no user, potentially redirect to login? 
-        // For now, we are just refreshing the session.
-        // The user requirement didn't specify strict route protection yet, just "Bridge" setup.
-        // But usually we want to protect some routes.
-        // The prompt says "Ensure middleware.ts is configured to refresh user sessions so they stay logged in."
-        // It doesn't explicitly ask for protected routes, but the standard updateSession does that.
-        // I will minimaly just return the response.
-    }
+    // Do not put logic between createServerClient and getUser(): getUser() is
+    // what triggers the token refresh and cookie write above.
+    await supabase.auth.getUser()
 
     return supabaseResponse
 }

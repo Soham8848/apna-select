@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { createClient } from "@/lib/supabase/server";
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public";
 import { Product } from "@/types/supabase";
 import { ProductBrowser } from "@/components/storefront/product-browser";
 import { CategoryRail } from "@/components/storefront/category-rail";
@@ -15,13 +15,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ProductsPage() {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data } = await supabase
         .from("products")
-        .select("*")
+        .select(CARD_COLUMNS)
         .order("created_at", { ascending: false });
 
-    const products = (data || []) as Product[];
+    const products = (data || []) as unknown as Product[];
     const categoryNames = Array.from(
         new Set(products.map((p) => p.category).filter(Boolean))
     ) as string[];

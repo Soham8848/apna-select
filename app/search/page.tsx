@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public";
 import { Product } from "@/types/supabase";
 import { ProductBrowser } from "@/components/storefront/product-browser";
 import { CategoryRail } from "@/components/storefront/category-rail";
@@ -23,7 +23,7 @@ export default async function SearchPage({
     let products: Product[] = [];
 
     if (query) {
-        const supabase = await createClient();
+        const supabase = createPublicClient();
         // Search titles AND descriptions — a shopper typing "power bank" should
         // still find "20000mAh Transparent Charger" when the phrase only appears
         // in the description. Commas are escaped because PostgREST's `or`
@@ -31,12 +31,12 @@ export default async function SearchPage({
         const safe = query.replace(/[,()]/g, " ").trim();
         const { data, error } = await supabase
             .from("products")
-            .select("*")
+            .select(CARD_COLUMNS)
             .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`)
             .limit(200);
 
         if (error) console.error("Search failed:", error.message);
-        products = (data || []) as Product[];
+        products = (data || []) as unknown as Product[];
     }
 
     return (

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { CARD_COLUMNS, createPublicClient } from "@/lib/supabase/public";
 import { Product } from "@/types/supabase";
 import { discountPercent, inr } from "@/lib/commerce";
 
@@ -12,7 +12,6 @@ import { SocialProof, ReviewQuote } from "@/components/storefront/social-proof";
 import { TrustBar } from "@/components/commerce/trust";
 import { BudgetTiers } from "@/components/storefront/budget-tiers";
 import { bestsellerIds } from "@/lib/server/bestsellers";
-import { getFavoriteIds } from "@/app/actions/favorite-actions";
 
 export const revalidate = 60;
 
@@ -31,22 +30,21 @@ export const revalidate = 60;
  * to actually choose.
  */
 export default async function Home() {
-    const supabase = await createClient();
+    // Cookie-free client + card-only columns: the page is identical for every
+    // visitor, so it is cached (ISR) and the payload stays small. Wishlist
+    // hearts are filled in client-side from the session store.
+    const supabase = createPublicClient();
 
-    const { data } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-    const products = (data || []) as Product[];
-
-    // Real top sellers and the shopper's saved items, both used to decorate cards.
-    const [topSellerIds, favoriteIds] = await Promise.all([
-        bestsellerIds(supabase, 8),
-        getFavoriteIds(),
+    const [{ data }, topSellerIds] = await Promise.all([
+        supabase
+            .from("products")
+            .select(CARD_COLUMNS)
+            .order("created_at", { ascending: false }),
+        bestsellerIds(8),
     ]);
+
+    const products = (data || []) as unknown as Product[];
     const bestsellers = new Set(topSellerIds);
-    const favorites = new Set(favoriteIds);
 
     const bestsellerProducts = topSellerIds
         .map((id) => products.find((p) => String(p.id) === id))
@@ -216,7 +214,6 @@ export default async function Home() {
                 <ShopGrid
                     products={products}
                     bestsellers={bestsellers}
-                    favorites={favorites}
                 />
             </section>
 
