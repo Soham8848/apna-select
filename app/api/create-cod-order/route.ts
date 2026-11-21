@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/server/request-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { priceOrder } from "@/lib/server/pricing";
 import { validateAddress, validateContact } from "@/lib/server/checkout";
@@ -12,9 +13,7 @@ export async function POST(req: Request) {
 
         const supabase = await createClient();
         const db = createAdminClient() ?? supabase;
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+        const user = await getRequestUser(req);
 
         const addressError = validateAddress(addressSnapshot);
         if (addressError) return NextResponse.json({ error: addressError }, { status: 400 });
